@@ -7,6 +7,11 @@
   packages = [
     pkgs.nodejs_20
     pkgs.zulu
+    pkgs.sudo # Added sudo package
+    pkgs.libressl_3_6.bin
+    pkgs.openssl
+
+
   ];
   # Sets environment variables in the workspace
   env = {};

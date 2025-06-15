@@ -1,7 +1,8 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } Gimport { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function SetterLayout({ children }: { children: ReactNode }) {

@@ -1,0 +1,109 @@
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"] // Required for Prisma Accelerate
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+enum Role {
+  SETTER
+  TAKER
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+  ESSAY
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String 
+  role        Role
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  examsSet    Exam[]    @relation("SetterExams")
+  submissions UserSubmission[] @relation("TakerSubmissions")
+}
+
+model Exam {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  passcode        String
+  durationMinutes Int?
+  
+  setterId        String
+  setter          User      @relation("SetterExams", fields: [setterId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  questions       Question[]
+  submissions     UserSubmission[]
+}
+
+model Question {
+  id            String    @id @default(cuid())
+  text          String
+  type          QuestionType
+  correctAnswer String?   // For MCQs, this stores the ID of the correct QuestionOption. For Short Answer, the answer itself.
+  points        Int
+  
+  examId        String
+  exam          Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  options       QuestionOption[]
+  userAnswers   UserAnswer[]
+}
+
+model QuestionOption {
+  id          String   @id @default(cuid()) // Client can provide this ID if needed during creation
+  text        String
+  
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserAnswer {
+  id           String  @id @default(cuid())
+  answer       Json    // Stores string for SA/Essay, or string (option ID) for MC
+  
+  questionId   String
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  submissionId String
+  submission   UserSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model UserSubmission {
+  id          String    @id @default(cuid())
+  submittedAt DateTime  @default(now())
+  score       Int?
+  
+  examId      String
+  exam        Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  
+  takerId     String
+  taker       User      @relation("TakerSubmissions", fields: [takerId], references: [id], onDelete: Cascade)
+  
+  answers     UserAnswer[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

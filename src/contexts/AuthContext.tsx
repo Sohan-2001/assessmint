@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Simulate checking auth status from localStorage or a cookie
     try {
-      const storedAuth = localStorage.getItem('examlyAuth');
+      const storedAuth = localStorage.getItem('assessMintAuth');
       if (storedAuth) {
         const { role } = JSON.parse(storedAuth);
         setIsAuthenticated(true);
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       // Invalid item in localStorage or localStorage not available
       console.warn("Could not load auth state from localStorage", error);
-      localStorage.removeItem('examlyAuth'); // Clear potentially corrupted item
+      localStorage.removeItem('assessMintAuth'); // Clear potentially corrupted item
     }
     setIsLoading(false);
   }, []);
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (role: UserRole, redirectPath?: string) => {
     setIsAuthenticated(true);
     setUserRole(role);
-    localStorage.setItem('examlyAuth', JSON.stringify({ role }));
+    localStorage.setItem('assessMintAuth', JSON.stringify({ role }));
     if (redirectPath) {
       router.push(redirectPath);
     } else {
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setIsAuthenticated(false);
     setUserRole(null);
-    localStorage.removeItem('examlyAuth');
+    localStorage.removeItem('assessMintAuth');
     // Redirect to home or login page, ensure it's not a protected route loop
     if (pathname?.startsWith('/setter') || pathname?.startsWith('/taker')) {
       router.push('/');

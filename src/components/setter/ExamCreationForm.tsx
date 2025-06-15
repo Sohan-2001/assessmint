@@ -13,18 +13,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { createExamAction } from "@/lib/actions/exam.actions";
 import { Loader2, PlusCircle, Trash2, Save, ListChecks } from "lucide-react";
-import type { Question as QuestionType, QuestionOption as QuestionOptionType } from "@/lib/types";
+// import type { Question as QuestionType, QuestionOption as QuestionOptionType } from "@/lib/types"; // Using Zod types directly
 import { useRouter } from "next/navigation";
 
 const questionOptionSchema = z.object({
+  id: z.string().default(() => Math.random().toString(36).substr(2, 9)), // Auto-generate ID for new options client-side
   text: z.string().min(1, "Option text cannot be empty"),
 });
 
 const questionSchema = z.object({
+  id: z.string().default(() => Math.random().toString(36).substr(2, 9)), // Auto-generate ID for new questions client-side
   text: z.string().min(1, "Question text cannot be empty"),
-  type: z.enum(["multiple-choice", "short-answer", "essay"]),
+  type: z.enum(["MULTIPLE_CHOICE", "SHORT_ANSWER", "ESSAY"]),
   options: z.array(questionOptionSchema).optional(),
-  correctAnswer: z.string().optional(), // For MC, this will be option text temporarily, then map to ID. For short answer, it's the answer.
+  correctAnswer: z.string().optional(), // For MC, this will be option text. Server action will map to ID if needed.
   points: z.coerce.number().min(0, "Points must be non-negative").default(0),
 });
 
@@ -37,6 +39,7 @@ const examFormSchema = z.object({
 });
 
 type ExamFormValues = z.infer<typeof examFormSchema>;
+type QuestionFormValues = z.infer<typeof questionSchema>;
 
 export function ExamCreationForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +52,16 @@ export function ExamCreationForm() {
       title: "",
       description: "",
       passcode: "",
-      questions: [{ text: "", type: "multiple-choice", points: 10, options: [{ text: "" }, { text: "" }] }],
+      questions: [{ 
+        id: Math.random().toString(36).substr(2, 9), 
+        text: "", 
+        type: "MULTIPLE_CHOICE", 
+        points: 10, 
+        options: [
+            { id: Math.random().toString(36).substr(2, 9), text: "" }, 
+            { id: Math.random().toString(36).substr(2, 9), text: "" }
+        ] 
+      }],
     },
   });
 
@@ -59,12 +71,21 @@ export function ExamCreationForm() {
   });
 
   const addQuestion = () => {
-    append({ text: "", type: "multiple-choice", points: 10, options: [{ text: "" }, { text: "" }] });
+    append({ 
+        id: Math.random().toString(36).substr(2, 9),
+        text: "", 
+        type: "MULTIPLE_CHOICE", 
+        points: 10, 
+        options: [
+            { id: Math.random().toString(36).substr(2, 9), text: "" }, 
+            { id: Math.random().toString(36).substr(2, 9), text: "" }
+        ] 
+    } as QuestionFormValues); // Cast to ensure type safety with default ID
   };
 
   const addOption = (questionIndex: number) => {
     const currentOptions = form.getValues(`questions.${questionIndex}.options`) || [];
-    form.setValue(`questions.${questionIndex}.options`, [...currentOptions, { text: "" }]);
+    form.setValue(`questions.${questionIndex}.options`, [...currentOptions, { id: Math.random().toString(36).substr(2, 9), text: "" }]);
   };
 
   const removeOption = (questionIndex: number, optionIndex: number) => {
@@ -75,35 +96,19 @@ export function ExamCreationForm() {
 
   async function onSubmit(values: ExamFormValues) {
     setIsLoading(true);
-
-    // Transform questions to match server expectations (e.g. creating IDs for options)
-    const processedValues = {
-      ...values,
-      questions: values.questions.map(q => {
-        let correctAnswerValue = q.correctAnswer;
-        if (q.type === 'multiple-choice' && q.options && q.correctAnswer) {
-           // For simplicity, this example assumes correctAnswer from form is option text.
-           // In a real scenario, it might be an index or a generated ID.
-           // For now, we'll just pass it as is, server action should handle it.
-        }
-        return {
-          ...q,
-          options: q.options?.map(opt => ({ id: Math.random().toString(36).substr(2,9), text: opt.text })),
-          correctAnswer: correctAnswerValue,
-        };
-      }),
-    };
     
+    // The server action `createExamAction` will now handle mapping client-side values
+    // (like correctAnswer text for MCQs) to the format Prisma expects (like option IDs).
+    // Client-generated IDs for questions and options are passed along.
     try {
-      const result = await createExamAction(processedValues);
+      const result = await createExamAction(values);
       if (result.success && result.exam) {
         toast({
           title: "Exam Created!",
           description: `"${result.exam.title}" has been successfully created.`,
         });
-        // Reset form or redirect
         form.reset();
-        router.push("/setter/dashboard"); // Or to the exam view page
+        router.push("/setter/dashboard");
       } else {
         toast({
           title: "Error Creating Exam",
@@ -135,7 +140,6 @@ export function ExamCreationForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-8">
-            {/* Exam Details Section */}
             <div className="space-y-4 p-6 border rounded-lg bg-card">
               <h3 className="text-xl font-headline font-semibold text-primary">Exam Details</h3>
               <FormField control={form.control} name="title" render={({ field }) => (
@@ -170,11 +174,10 @@ export function ExamCreationForm() {
               </div>
             </div>
 
-            {/* Questions Section */}
             <div className="space-y-4">
               <h3 className="text-xl font-headline font-semibold text-primary">Questions</h3>
-              {fields.map((question, questionIndex) => (
-                <Card key={question.id} className="p-4 space-y-3 bg-muted/50">
+              {fields.map((questionItem, questionIndex) => ( // questionItem here is from useFieldArray
+                <Card key={questionItem.id} className="p-4 space-y-3 bg-muted/50">
                   <div className="flex justify-between items-center">
                     <h4 className="text-lg font-medium">Question {questionIndex + 1}</h4>
                     {fields.length > 1 && (
@@ -197,9 +200,9 @@ export function ExamCreationForm() {
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select question type" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                            <SelectItem value="short-answer">Short Answer</SelectItem>
-                            <SelectItem value="essay">Essay</SelectItem>
+                            <SelectItem value="MULTIPLE_CHOICE">Multiple Choice</SelectItem>
+                            <SelectItem value="SHORT_ANSWER">Short Answer</SelectItem>
+                            <SelectItem value="ESSAY">Essay</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -214,11 +217,11 @@ export function ExamCreationForm() {
                     )} />
                   </div>
 
-                  {form.watch(`questions.${questionIndex}.type`) === 'multiple-choice' && (
+                  {form.watch(`questions.${questionIndex}.type`) === 'MULTIPLE_CHOICE' && (
                     <div className="pl-4 border-l-2 border-primary/50 space-y-2 mt-2">
                       <h5 className="text-md font-medium">Options</h5>
                       {form.getValues(`questions.${questionIndex}.options`)?.map((_, optionIndex) => (
-                         <div key={optionIndex} className="flex items-center gap-2">
+                         <div key={optionIndex} className="flex items-center gap-2"> {/* Option ID might not be stable for key if reordering happens; consider index for key */}
                            <FormField control={form.control} name={`questions.${questionIndex}.options.${optionIndex}.text`} render={({ field }) => (
                              <FormItem className="flex-grow">
                                <FormControl><Input placeholder={`Option ${optionIndex + 1}`} {...field} /></FormControl>
@@ -242,11 +245,12 @@ export function ExamCreationForm() {
                             <Input placeholder="Text of the correct option" {...field} />
                           </FormControl>
                            <FormMessage />
+                           <p className="text-xs text-muted-foreground">Enter the exact text of the correct option from above.</p>
                         </FormItem>
                       )} />
                     </div>
                   )}
-                  {(form.watch(`questions.${questionIndex}.type`) === 'short-answer') && (
+                  {(form.watch(`questions.${questionIndex}.type`) === 'SHORT_ANSWER') && (
                      <FormField control={form.control} name={`questions.${questionIndex}.correctAnswer`} render={({ field }) => (
                         <FormItem>
                           <FormLabel>Correct Answer (Optional)</FormLabel>

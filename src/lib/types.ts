@@ -1,3 +1,5 @@
+export type QuestionType = 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY';
+
 export interface QuestionOption {
   id: string;
   text: string;
@@ -6,34 +8,33 @@ export interface QuestionOption {
 export interface Question {
   id: string;
   text: string;
-  type: 'multiple-choice' | 'short-answer' | 'essay';
+  type: QuestionType;
   options?: QuestionOption[]; // For multiple choice
-  correctAnswer?: string; // For multiple choice (option id) or short answer
-  // For essay, grading is manual, so correctAnswer might not apply here.
+  correctAnswer?: string; // For MC (option id) or short answer text
   points: number;
 }
 
 export interface Exam {
   id: string;
   title: string;
-  description: string;
+  description: string; // Prisma model has String? - ensure it's always string here or handle undefined
   passcode: string;
   questions: Question[];
-  setterId: string; // Mocked ID of the exam setter
+  setterId: string; 
   createdAt: Date;
-  durationMinutes?: number; // Optional: exam duration in minutes
+  durationMinutes?: number;
 }
 
 export interface UserAnswer {
   questionId: string;
-  answer: string | string[]; // string for short-answer/essay, string[] for multiple-choice if multi-select allowed (option ids)
+  answer: string | string[]; // string for short-answer/essay/MCQ_option_id, string[] for future multi-select MCQs
 }
 
 export interface UserSubmission {
   id: string;
   examId: string;
-  takerId: string; // Mocked ID of the exam taker
+  takerId: string;
   answers: UserAnswer[];
   submittedAt: Date;
-  score?: number; // Optional: score after grading
+  score?: number;
 }

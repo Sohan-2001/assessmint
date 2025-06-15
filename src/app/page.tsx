@@ -8,7 +8,7 @@ export default function HomePage() {
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-background">
       <header className="mb-12">
         <h1 className="text-5xl md:text-6xl font-headline font-bold text-primary mb-4">
-          Welcome to Examly
+          Welcome to AssessMint
         </h1>
         <p className="text-xl md:text-2xl text-foreground max-w-2xl mx-auto">
           The modern platform for creating, managing, and taking exams with AI-powered assistance.
@@ -18,7 +18,7 @@ export default function HomePage() {
       <div className="mb-12 w-full max-w-4xl">
         <Image
           src="https://placehold.co/1200x600.png"
-          alt="Examly platform illustration"
+          alt="AssessMint platform illustration"
           width={1200}
           height={600}
           className="rounded-lg shadow-xl object-cover"

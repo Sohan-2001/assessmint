@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input"; // Added Input for short-answer
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+// import { Checkbox } from "@/components/ui/checkbox"; // Not used currently
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { submitExamAnswersAction } from "@/lib/actions/exam.actions";
@@ -22,7 +23,7 @@ type ExamTakingInterfaceProps = {
 export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<UserAnswer[]>(() => 
-    exam.questions.map(q => ({ questionId: q.id, answer: "" }))
+    exam.questions.map(q => ({ questionId: q.id, answer: "" })) // Default answer to empty string
   );
   const [timeLeft, setTimeLeft] = useState<number | null>(exam.durationMinutes ? exam.durationMinutes * 60 : null);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +41,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
         setTimeLeft(prevTime => {
           if (prevTime === null || prevTime <= 1) {
             clearInterval(timer);
-            handleSubmit(true); // Auto-submit when time is up
+            handleSubmit(true); 
             return 0;
           }
           return prevTime - 1;
@@ -49,7 +50,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
       return () => clearInterval(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exam.durationMinutes]);
+  }, [exam.durationMinutes]); // handleSubmit dependency removed to avoid re-triggering timer setup on its change
 
   const formatTime = (seconds: number | null): string => {
     if (seconds === null) return "No time limit";
@@ -84,22 +85,24 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     setIsLoading(false);
     if (result.success) {
       toast({ title: "Exam Submitted!", description: result.message || "Your answers have been recorded." });
-      router.push(`/taker/exams?submission=${result.submissionId}`); // Redirect to a results/confirmation page potentially
+      router.push(`/taker/exams?submission=${result.submissionId}`); 
     } else {
       toast({ title: "Submission Failed", description: result.message || "Could not submit your answers.", variant: "destructive" });
     }
-    if (autoSubmit && timeLeft === 0) {
+    if (autoSubmit && timeLeft === 0) { // Check specifically if timeLeft ran out for auto-submit message
         toast({ title: "Time's Up!", description: "Your exam has been automatically submitted.", variant: "default" });
     }
   };
 
   const renderQuestionInput = (question: QuestionType) => {
-    const currentAnswer = answers.find(a => a.questionId === question.id)?.answer || "";
+    const currentAnswerObj = answers.find(a => a.questionId === question.id);
+    const currentAnswerValue = currentAnswerObj ? currentAnswerObj.answer : "";
+
     switch (question.type) {
-      case 'multiple-choice':
+      case 'MULTIPLE_CHOICE':
         return (
           <RadioGroup
-            value={currentAnswer as string}
+            value={currentAnswerValue as string} // MC answer is option ID (string)
             onValueChange={(value) => handleAnswerChange(question.id, value)}
             className="space-y-3"
           >
@@ -111,26 +114,29 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
             ))}
           </RadioGroup>
         );
-      case 'short-answer':
+      case 'SHORT_ANSWER':
         return (
           <Input
-            value={currentAnswer as string}
+            value={currentAnswerValue as string}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
             placeholder="Type your short answer here"
             className="text-base"
           />
         );
-      case 'essay':
+      case 'ESSAY':
         return (
           <Textarea
-            value={currentAnswer as string}
+            value={currentAnswerValue as string}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
             placeholder="Type your essay here"
             className="min-h-[150px] text-base"
           />
         );
       default:
-        return <p>Unsupported question type.</p>;
+        // This should ideally not be reached if question types are validated
+        const exhaustiveCheck: never = question.type; 
+        console.error("Unsupported question type:", exhaustiveCheck);
+        return <p>Unsupported question type: {question.type}</p>;
     }
   };
 

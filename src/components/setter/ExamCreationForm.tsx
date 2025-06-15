@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -34,7 +35,7 @@ const examFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long"),
   description: z.string().optional(),
   passcode: z.string().min(4, "Passcode must be at least 4 characters long"),
-  durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional(),
+  durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional().nullable(),
   questions: z.array(questionSchema).min(1, "An exam must have at least one question"),
 });
 
@@ -52,6 +53,7 @@ export function ExamCreationForm() {
       title: "",
       description: "",
       passcode: "",
+      durationMinutes: undefined, // Explicitly undefined
       questions: [{ 
         id: Math.random().toString(36).substr(2, 9), 
         text: "", 
@@ -167,7 +169,23 @@ export function ExamCreationForm() {
                 <FormField control={form.control} name="durationMinutes" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Duration (Minutes, Optional)</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 60" {...field} onChange={e => field.onChange(parseInt(e.target.value,10))} /></FormControl>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      placeholder="e.g., 60" 
+                      {...field} 
+                      value={field.value ?? ""}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          field.onChange(undefined);
+                        } else {
+                          const parsed = parseInt(val, 10);
+                          field.onChange(isNaN(parsed) ? undefined : parsed);
+                        }
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -211,7 +229,23 @@ export function ExamCreationForm() {
                     <FormField control={form.control} name={`questions.${questionIndex}.points`} render={({ field }) => (
                       <FormItem>
                         <FormLabel>Points</FormLabel>
-                        <FormControl><Input type="number" placeholder="e.g., 10" {...field} onChange={e => field.onChange(parseInt(e.target.value,10))} /></FormControl>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="e.g., 10" 
+                            {...field} 
+                            value={field.value ?? ""}
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === "") {
+                                field.onChange(undefined); // Let Zod's .default(0) handle this
+                              } else {
+                                const parsed = parseInt(val, 10);
+                                field.onChange(isNaN(parsed) ? undefined : parsed);
+                              }
+                            }}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
@@ -277,3 +311,6 @@ export function ExamCreationForm() {
     </Card>
   );
 }
+
+
+    

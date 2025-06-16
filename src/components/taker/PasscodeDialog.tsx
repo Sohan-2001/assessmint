@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -77,3 +78,4 @@ export function PasscodeDialog({ isOpen, onOpenChange, onSubmit, examTitle }: Pa
     </Dialog>
   );
 }
+

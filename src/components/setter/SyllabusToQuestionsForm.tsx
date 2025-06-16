@@ -67,12 +67,12 @@ export function SyllabusToQuestionsForm() {
               name="syllabus"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="syllabus" className="text-sm font-medium">Syllabus Content</FormLabel>
+                  <FormLabel htmlFor="syllabus" className="text-xs md:text-sm font-medium">Syllabus Content</FormLabel>
                   <FormControl>
                     <Textarea
                       id="syllabus"
                       placeholder="Paste your syllabus here..."
-                      className="min-h-[100px] text-xs"
+                      className="min-h-[80px] md:min-h-[100px] text-xs"
                       {...field}
                       disabled={isLoading}
                     />
@@ -82,15 +82,15 @@ export function SyllabusToQuestionsForm() {
               )}
             />
           <div className="hidden md:flex justify-end pt-1"> 
-            <Button type="submit" disabled={isLoading} size="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Button type="submit" disabled={isLoading} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs md:text-sm">
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 md:mr-2 md:h-4 md:w-4 animate-spin" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 md:mr-2 md:h-4 md:w-4" />
                   Generate Questions
                 </>
               )}
@@ -100,25 +100,26 @@ export function SyllabusToQuestionsForm() {
       </Form>
 
       {isLoading && (
-        <div className="mt-4 flex items-center justify-center">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary"/>
-            <p className="text-sm text-muted-foreground">Generating questions...</p>
+        <div className="mt-3 md:mt-4 flex items-center justify-center">
+            <Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin text-primary"/>
+            <p className="text-xs md:text-sm text-muted-foreground">Generating questions...</p>
         </div>
       )}
 
-      {generatedQuestions && !isLoading && (
-        <div className="mt-4 border-t pt-3">
-          <h3 className="text-base font-headline font-semibold text-primary mb-2">Suggested Questions:</h3>
-          <div className="space-y-2 overflow-y-auto max-h-[200px] pr-2">
-            {generatedQuestions.questions.split('\n\n').map((qBlock, index) => (
-              <div key={index} className="p-2.5 bg-card border border-border rounded-md shadow-sm">
+      {generatedQuestions && generatedQuestions.questions && !isLoading && (
+        <div className="mt-3 md:mt-4 border-t pt-2 md:pt-3">
+          <h3 className="text-sm md:text-base font-headline font-semibold text-primary mb-1.5 md:mb-2">Suggested Questions:</h3>
+          <div className="space-y-2 overflow-y-auto max-h-[150px] md:max-h-[200px] pr-1 md:pr-2">
+            {generatedQuestions.questions.map((qObj, index) => (
+              <div key={index} className="p-2 md:p-2.5 bg-card border border-border rounded-md shadow-sm">
+                {qObj.topic && <h4 className="text-xs md:text-sm font-semibold text-primary mb-0.5 md:mb-1">{qObj.topic}</h4>}
                 <p className="whitespace-pre-wrap text-xs text-foreground">
-                  {qBlock.trim()}
+                  {qObj.question.trim()}
                 </p>
               </div>
             ))}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-1.5 md:mt-2 text-xs text-muted-foreground">
             Review these questions and adapt them as needed for your exam. You can copy and paste them into the exam creation form.
           </p>
         </div>
@@ -126,3 +127,4 @@ export function SyllabusToQuestionsForm() {
     </div>
   );
 }
+

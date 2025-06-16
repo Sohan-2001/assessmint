@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-questions-from-syllabus.ts
 'use server';
 /**
@@ -18,10 +19,15 @@ const GenerateQuestionsInputSchema = z.object({
 });
 export type GenerateQuestionsInput = z.infer<typeof GenerateQuestionsInputSchema>;
 
+const QuestionObjectSchema = z.object({
+  topic: z.string().describe('The topic or category of the question, suitable as a subheading.'),
+  question: z.string().describe('The full text of the question itself.'),
+});
+
 const GenerateQuestionsOutputSchema = z.object({
   questions: z
-    .string()
-    .describe('A list of suggested questions based on the syllabus.'),
+    .array(QuestionObjectSchema)
+    .describe('A list of suggested question objects, each with a topic and question text.'),
 });
 export type GenerateQuestionsOutput = z.infer<typeof GenerateQuestionsOutputSchema>;
 
@@ -34,8 +40,26 @@ const generateQuestionsPrompt = ai.definePrompt({
   input: {schema: GenerateQuestionsInputSchema},
   output: {schema: GenerateQuestionsOutputSchema},
   prompt: `You are an expert exam question generator. Please analyze the given syllabus and suggest relevant exam questions.
+Return your response as a JSON array of objects, where each object has two keys: "topic" (string, representing the subject or category of the question, suitable for a subheading) and "question" (string, the full text of the question).
 
-Syllabus: {{{syllabus}}}`,
+Syllabus:
+{{{syllabus}}}
+
+Example of desired JSON output format:
+{
+  "questions": [
+    {
+      "topic": "Chapter 1: Introduction to Biology",
+      "question": "What are the fundamental characteristics of living organisms?"
+    },
+    {
+      "topic": "Chapter 2: Cell Structure",
+      "question": "Describe the main differences between prokaryotic and eukaryotic cells."
+    }
+  ]
+}
+Ensure your output strictly adheres to this JSON structure.
+`,
 });
 
 const generateQuestionsFlow = ai.defineFlow(
@@ -46,6 +70,13 @@ const generateQuestionsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await generateQuestionsPrompt(input);
-    return output!;
+    // The output should already conform to GenerateQuestionsOutputSchema due to ai.definePrompt
+    // If output is null or undefined, it means the LLM call failed or returned non-conforming data.
+    // Genkit handles parsing based on the schema; if it fails, an error would typically be thrown.
+    if (!output) {
+        throw new Error('AI did not return valid questions in the expected format.');
+    }
+    return output;
   }
 );
+

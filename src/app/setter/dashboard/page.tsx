@@ -3,29 +3,28 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, BookText, BarChart3, Settings } from "lucide-react";
+import { PlusCircle, BookText, BarChart3 } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "@/contexts/AuthContext"; // Assuming user info might be displayed
-// AI Panel hook is not directly used here anymore for opening, but useAuth might be relevant for other purposes.
+import { useAuth } from "@/contexts/AuthContext"; 
 
 export default function SetterDashboardPage() {
-  const { userRole } = useAuth(); // Example: personalize dashboard
+  const { userRole } = useAuth(); 
 
   return (
     <div className="space-y-8">
-      <h1 className="text-4xl font-headline font-bold text-primary">Setter Dashboard</h1>
+      <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">Setter Dashboard</h1>
       
       <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-semibold font-headline">Create New Exam</CardTitle>
-            <PlusCircle className="h-8 w-8 text-accent" />
+            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Create New Exam</CardTitle>
+            <PlusCircle className="h-7 w-7 md:h-8 md:w-8 text-accent" />
           </CardHeader>
           <CardContent>
-            <CardDescription className="mb-4">
+            <CardDescription className="mb-4 text-sm md:text-base">
               Design a new exam from scratch or use existing templates.
             </CardDescription>
-            <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-sm md:text-base">
               <Link href="/setter/create-exam">Start Creating</Link>
             </Button>
           </CardContent>
@@ -33,50 +32,37 @@ export default function SetterDashboardPage() {
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-semibold font-headline">Manage Exams</CardTitle>
-            <BookText className="h-8 w-8 text-muted-foreground" />
+            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Manage Exams</CardTitle>
+            <BookText className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <CardDescription className="mb-4">
+            <CardDescription className="mb-4 text-sm md:text-base">
               View, edit, and manage all your created exams. (Coming Soon)
             </CardDescription>
-            <Button disabled className="w-full">View Exams</Button>
+            <Button disabled className="w-full text-sm md:text-base">View Exams</Button>
           </CardContent>
         </Card>
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-semibold font-headline">View Results</CardTitle>
-            <BarChart3 className="h-8 w-8 text-muted-foreground" />
+            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">View Results</CardTitle>
+            <BarChart3 className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <CardDescription className="mb-4">
+            <CardDescription className="mb-4 text-sm md:text-base">
               Analyze exam performance and student submissions. (Coming Soon)
             </CardDescription>
-            <Button disabled className="w-full">Analytics</Button>
+            <Button disabled className="w-full text-sm md:text-base">Analytics</Button>
           </CardContent>
         </Card>
         
-        {/* <Card className="shadow-lg hover:shadow-xl transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-semibold font-headline">Account Settings</CardTitle>
-            <Settings className="h-8 w-8 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="mb-4">
-              Update your profile and preferences.
-            </CardDescription>
-            <Button disabled className="w-full">Go to Settings</Button>
-          </CardContent>
-        </Card> */}
       </section>
       
       <section>
-        <h2 className="text-2xl font-headline font-semibold text-primary mb-4">Recent Activity</h2>
+        <h2 className="text-xl md:text-2xl font-headline font-semibold text-primary mb-4">Recent Activity</h2>
         <Card className="shadow-md">
           <CardContent className="pt-6">
-            <p className="text-muted-foreground">No recent activity to display. Start by creating an exam!</p>
-            {/* Placeholder for recent activity feed */}
+            <p className="text-muted-foreground text-sm md:text-base">No recent activity to display. Start by creating an exam!</p>
           </CardContent>
         </Card>
       </section>

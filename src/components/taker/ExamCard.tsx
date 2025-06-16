@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Exam } from "@/lib/types";
@@ -8,18 +9,18 @@ import { formatDistanceToNow } from 'date-fns';
 
 type ExamCardProps = {
   exam: Exam;
-  onAccessExam: (examId: string) => void;
+  onAccessExam: (examId: string) => void; // Changed from onAccessExam: (exam: Exam) to onAccessExam: (examId: string)
 };
 
 export function ExamCard({ exam, onAccessExam }: ExamCardProps) {
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
-        <CardTitle className="text-2xl font-headline text-primary flex items-center">
-            <ListChecks className="mr-2 h-6 w-6 text-primary" />
+        <CardTitle className="text-xl md:text-2xl font-headline text-primary flex items-center">
+            <ListChecks className="mr-2 h-5 w-5 md:h-6 md:w-6 text-primary" />
             {exam.title}
         </CardTitle>
-        <CardDescription className="line-clamp-3">{exam.description || "No description available."}</CardDescription>
+        <CardDescription className="line-clamp-3 text-sm md:text-base">{exam.description || "No description available."}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow space-y-2">
         <div className="flex items-center text-sm text-muted-foreground">
@@ -37,7 +38,7 @@ export function ExamCard({ exam, onAccessExam }: ExamCardProps) {
         </p>
       </CardContent>
       <CardFooter>
-        <Button onClick={() => onAccessExam(exam.id)} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+        <Button onClick={() => onAccessExam(exam.id)} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-sm md:text-base">
           Access Exam
         </Button>
       </CardFooter>

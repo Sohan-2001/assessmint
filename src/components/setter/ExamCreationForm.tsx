@@ -14,20 +14,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { createExamAction } from "@/lib/actions/exam.actions";
 import { Loader2, PlusCircle, Trash2, Save, ListChecks } from "lucide-react";
-// import type { Question as QuestionType, QuestionOption as QuestionOptionType } from "@/lib/types"; // Using Zod types directly
 import { useRouter } from "next/navigation";
 
 const questionOptionSchema = z.object({
-  id: z.string().default(() => Math.random().toString(36).substr(2, 9)), // Auto-generate ID for new options client-side
+  id: z.string().default(() => Math.random().toString(36).substr(2, 9)), 
   text: z.string().min(1, "Option text cannot be empty"),
 });
 
 const questionSchema = z.object({
-  id: z.string().default(() => Math.random().toString(36).substr(2, 9)), // Auto-generate ID for new questions client-side
+  id: z.string().default(() => Math.random().toString(36).substr(2, 9)), 
   text: z.string().min(1, "Question text cannot be empty"),
   type: z.enum(["MULTIPLE_CHOICE", "SHORT_ANSWER", "ESSAY"]),
   options: z.array(questionOptionSchema).optional(),
-  correctAnswer: z.string().optional(), // For MC, this will be option text. Server action will map to ID if needed.
+  correctAnswer: z.string().optional(), 
   points: z.coerce.number().min(0, "Points must be non-negative").default(0),
 });
 
@@ -53,7 +52,7 @@ export function ExamCreationForm() {
       title: "",
       description: "",
       passcode: "",
-      durationMinutes: undefined, // Explicitly undefined
+      durationMinutes: undefined, 
       questions: [{ 
         id: Math.random().toString(36).substr(2, 9), 
         text: "", 
@@ -82,7 +81,7 @@ export function ExamCreationForm() {
             { id: Math.random().toString(36).substr(2, 9), text: "" }, 
             { id: Math.random().toString(36).substr(2, 9), text: "" }
         ] 
-    } as QuestionFormValues); // Cast to ensure type safety with default ID
+    } as QuestionFormValues); 
   };
 
   const addOption = (questionIndex: number) => {
@@ -99,9 +98,6 @@ export function ExamCreationForm() {
   async function onSubmit(values: ExamFormValues) {
     setIsLoading(true);
     
-    // The server action `createExamAction` will now handle mapping client-side values
-    // (like correctAnswer text for MCQs) to the format Prisma expects (like option IDs).
-    // Client-generated IDs for questions and options are passed along.
     try {
       const result = await createExamAction(values);
       if (result.success && result.exam) {
@@ -132,18 +128,18 @@ export function ExamCreationForm() {
   return (
     <Card className="w-full mx-auto shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline text-primary flex items-center">
-          <ListChecks className="mr-2 h-7 w-7" /> Create New Exam
+        <CardTitle className="text-2xl md:text-3xl font-headline text-primary flex items-center">
+          <ListChecks className="mr-2 h-6 w-6 md:h-7 md:w-7" /> Create New Exam
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-sm md:text-base">
           Fill in the details below to create your exam. You can add multiple questions of different types.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-8">
-            <div className="space-y-4 p-6 border rounded-lg bg-card">
-              <h3 className="text-xl font-headline font-semibold text-primary">Exam Details</h3>
+            <div className="space-y-4 p-4 md:p-6 border rounded-lg bg-card">
+              <h3 className="text-lg md:text-xl font-headline font-semibold text-primary">Exam Details</h3>
               <FormField control={form.control} name="title" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Exam Title</FormLabel>
@@ -193,11 +189,11 @@ export function ExamCreationForm() {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-headline font-semibold text-primary">Questions</h3>
-              {fields.map((questionItem, questionIndex) => ( // questionItem here is from useFieldArray
-                <Card key={questionItem.id} className="p-4 space-y-3 bg-muted/50">
+              <h3 className="text-lg md:text-xl font-headline font-semibold text-primary">Questions</h3>
+              {fields.map((questionItem, questionIndex) => ( 
+                <Card key={questionItem.id} className="p-3 md:p-4 space-y-3 bg-muted/50">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-lg font-medium">Question {questionIndex + 1}</h4>
+                    <h4 className="text-base md:text-lg font-medium">Question {questionIndex + 1}</h4>
                     {fields.length > 1 && (
                       <Button type="button" variant="destructive" size="sm" onClick={() => remove(questionIndex)}>
                         <Trash2 className="h-4 w-4 mr-1" /> Remove Question
@@ -238,7 +234,7 @@ export function ExamCreationForm() {
                             onChange={e => {
                               const val = e.target.value;
                               if (val === "") {
-                                field.onChange(undefined); // Let Zod's .default(0) handle this
+                                field.onChange(undefined); 
                               } else {
                                 const parsed = parseInt(val, 10);
                                 field.onChange(isNaN(parsed) ? undefined : parsed);
@@ -252,10 +248,10 @@ export function ExamCreationForm() {
                   </div>
 
                   {form.watch(`questions.${questionIndex}.type`) === 'MULTIPLE_CHOICE' && (
-                    <div className="pl-4 border-l-2 border-primary/50 space-y-2 mt-2">
-                      <h5 className="text-md font-medium">Options</h5>
+                    <div className="pl-2 md:pl-4 border-l-2 border-primary/50 space-y-2 mt-2">
+                      <h5 className="text-sm md:text-base font-medium">Options</h5>
                       {form.getValues(`questions.${questionIndex}.options`)?.map((_, optionIndex) => (
-                         <div key={optionIndex} className="flex items-center gap-2"> {/* Option ID might not be stable for key if reordering happens; consider index for key */}
+                         <div key={optionIndex} className="flex items-center gap-2"> 
                            <FormField control={form.control} name={`questions.${questionIndex}.options.${optionIndex}.text`} render={({ field }) => (
                              <FormItem className="flex-grow">
                                <FormControl><Input placeholder={`Option ${optionIndex + 1}`} {...field} /></FormControl>
@@ -301,8 +297,8 @@ export function ExamCreationForm() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              {isLoading ? (<Loader2 className="mr-2 h-5 w-5 animate-spin" />) : (<Save className="mr-2 h-5 w-5" />)}
+            <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
+              {isLoading ? (<Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin" />) : (<Save className="mr-2 h-4 w-4 md:h-5 md:w-5" />)}
               {isLoading ? "Saving Exam..." : "Save Exam"}
             </Button>
           </CardFooter>
@@ -311,6 +307,3 @@ export function ExamCreationForm() {
     </Card>
   );
 }
-
-
-    

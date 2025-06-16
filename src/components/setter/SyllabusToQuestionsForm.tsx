@@ -59,20 +59,20 @@ export function SyllabusToQuestionsForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4"> {/* Reduced space-y from 6 to 4 */}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"> {/* Reduced space-y from 6 to 4 */}
             <FormField
               control={form.control}
               name="syllabus"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="syllabus" className="text-lg font-medium">Syllabus Content</FormLabel>
+                  <FormLabel htmlFor="syllabus" className="text-base font-medium">Syllabus Content</FormLabel> {/* Changed text-lg to text-base */}
                   <FormControl>
                     <Textarea
                       id="syllabus"
-                      placeholder="Paste your syllabus here... e.g., Course Objectives, Topics Covered, Learning Outcomes..."
-                      className="min-h-[200px] text-base"
+                      placeholder="Paste your syllabus here..."
+                      className="min-h-[120px] text-sm" /* Reduced min-h, changed text-base to text-sm */
                       {...field}
                     />
                   </FormControl>
@@ -80,16 +80,16 @@ export function SyllabusToQuestionsForm() {
                 </FormItem>
               )}
             />
-          <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <div className="flex justify-end pt-1"> {/* Reduced pt from 2 to 1 */}
+            <Button type="submit" disabled={isLoading} size="default" className="bg-primary hover:bg-primary/90 text-primary-foreground"> {/* Changed size from lg to default */}
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {/* size="default" button makes icon h-4 w-4 */}
                   Generating...
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-5 w-5" />
+                  <Sparkles className="mr-2 h-4 w-4" /> {/* size="default" button makes icon h-4 w-4 */}
                   Generate Questions
                 </>
               )}
@@ -99,12 +99,12 @@ export function SyllabusToQuestionsForm() {
       </Form>
 
       {generatedQuestions && (
-        <div className="mt-8 border-t pt-6">
-          <h3 className="text-xl font-headline font-semibold text-primary mb-4">Suggested Questions:</h3>
-          <div className="p-4 bg-muted rounded-md whitespace-pre-wrap text-sm overflow-x-auto max-h-[300px]">
+        <div className="mt-6 border-t pt-4"> {/* Reduced mt and pt */}
+          <h3 className="text-lg font-headline font-semibold text-primary mb-3">Suggested Questions:</h3> {/* Reduced font size and mb */}
+          <div className="p-2 bg-muted rounded-md whitespace-pre-wrap text-xs overflow-x-auto max-h-[200px]"> {/* Reduced p, text-sm to text-xs, max-h */}
             {generatedQuestions.questions}
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">
+          <p className="mt-3 text-xs text-muted-foreground"> {/* Reduced mt and text-sm to text-xs */}
             Review these questions and adapt them as needed for your exam. You can copy and paste them into the exam creation form.
           </p>
         </div>

@@ -32,20 +32,20 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
   // Shared content for the panel's header
   const PanelHeaderContent = () => (
-    <div className="flex justify-between items-center p-4 sm:px-6 border-b shrink-0">
-      <h2 className="text-xl font-headline text-primary flex items-center">
-        <Sparkles className="mr-2 h-5 w-5" /> AI Question Generator
+    <div className="flex justify-between items-center p-3 border-b shrink-0">
+      <h2 className="text-lg font-headline text-primary flex items-center">
+        <Sparkles className="mr-2 h-4 w-4" /> AI Question Generator
       </h2>
       <Button variant="ghost" size="icon" onClick={() => setIsAiPanelOpen(false)} aria-label="Close AI Panel">
-        <X className="h-5 w-5" />
+        <X className="h-4 w-4" />
       </Button>
     </div>
   );
 
   // Shared content for the panel's body (form area)
   const PanelBodyContent = () => (
-    <div className="p-4 sm:p-6 space-y-4 flex-grow flex flex-col overflow-y-auto">
-      <p className="text-sm text-muted-foreground">
+    <div className="p-3 space-y-3 flex-grow flex flex-col overflow-y-auto">
+      <p className="text-xs text-muted-foreground">
         Paste your syllabus content below. The AI will analyze it and suggest relevant exam questions.
       </p>
       <div className="flex-grow min-h-0"> {/* Ensures form takes available space and can shrink/scroll */}
@@ -75,7 +75,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
       {/* Main Content Area */}
       <main className="overflow-y-auto flex-1 w-full">
-        <div className="p-4 sm:p-6 md:p-8">
+        <div className={isAiPanelOpen && isMobile ? "p-2" : "p-4 sm:p-6 md:p-8"}>
           {children}
         </div>
       </main>

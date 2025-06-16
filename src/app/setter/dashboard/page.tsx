@@ -3,14 +3,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, BookText, BarChart3, Settings, SparklesIcon } from "lucide-react";
+import { PlusCircle, BookText, BarChart3, Settings } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext"; // Assuming user info might be displayed
-import { useAiPanel } from '@/contexts/AiPanelContext'; // Import the hook
+// AI Panel hook is not directly used here anymore for opening, but useAuth might be relevant for other purposes.
 
 export default function SetterDashboardPage() {
   const { userRole } = useAuth(); // Example: personalize dashboard
-  const { setIsAiPanelOpen } = useAiPanel(); // Consume the context
 
   return (
     <div className="space-y-8">
@@ -28,21 +27,6 @@ export default function SetterDashboardPage() {
             </CardDescription>
             <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
               <Link href="/setter/create-exam">Start Creating</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg hover:shadow-xl transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-semibold font-headline">AI Question Generator</CardTitle>
-            <SparklesIcon className="h-8 w-8 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <CardDescription className="mb-4">
-              Generate questions quickly by providing a syllabus or topic.
-            </CardDescription>
-            <Button onClick={() => setIsAiPanelOpen(true)} className="w-full">
-              Generate Questions
             </Button>
           </CardContent>
         </Card>

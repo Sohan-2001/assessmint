@@ -33,7 +33,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <main className={`flex-1 overflow-y-auto ${isAiPanelOpen && AI_PANEL_WIDTH_CLASSES.startsWith('w-full') ? 'md:block' : 'block'} ${isAiPanelOpen && AI_PANEL_WIDTH_CLASSES.startsWith('w-full') && !AI_PANEL_WIDTH_CLASSES.includes('md:w-') ? 'hidden' : 'block' }`}>
+      <main className={`overflow-y-auto ${isAiPanelOpen ? 'hidden md:flex-1' : 'flex-1'}`}>
         <div className="p-4 sm:p-6 md:p-8">
           {children}
         </div>
@@ -43,7 +43,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
         <aside
           className={`
             ${AI_PANEL_WIDTH_CLASSES} 
-            h-full bg-card border-l border-border shadow-xl
+            h-full bg-card border-l border-border
             flex flex-col
             overflow-auto 
             resize-x 
@@ -73,3 +73,4 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

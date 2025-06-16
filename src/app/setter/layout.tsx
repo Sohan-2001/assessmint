@@ -10,7 +10,7 @@ import { useAiPanel } from "@/contexts/AiPanelContext";
 import { Button } from "@/components/ui/button";
 
 // Define initial panel width classes for different breakpoints
-const AI_PANEL_WIDTH_CLASSES = "w-[20rem] md:w-[30rem] lg:w-[35rem] xl:w-[40rem]";
+// const AI_PANEL_WIDTH_CLASSES = "w-full md:w-[30rem] lg:w-[35rem] xl:w-[40rem]"; // No longer used directly here, inlined below
 
 export default function SetterLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, userRole, isLoading: isAuthLoading } = useAuth();
@@ -32,8 +32,8 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <main className="overflow-y-auto flex-1">
+    <div className="flex flex-col md:flex-row h-full">
+      <main className="overflow-y-auto flex-1 w-full">
         <div className="p-4 sm:p-6 md:p-8">
           {children}
         </div>
@@ -42,14 +42,15 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
       {isAiPanelOpen && (
         <aside
           className={`
-            ${AI_PANEL_WIDTH_CLASSES} 
-            h-full bg-card border-l border-border
+            w-full md:w-[30rem] lg:w-[35rem] xl:w-[40rem] 
+            md:h-full 
+            bg-card border-t md:border-t-0 md:border-l border-border
             flex flex-col
             overflow-auto 
-            resize-x 
-            min-w-[18rem] 
-            max-w-2xl 
-            transition-opacity duration-300 ease-in-out 
+            md:resize-x 
+            md:min-w-[18rem] 
+            md:max-w-2xl 
+            transition-opacity duration-300 ease-in-out
           `}
         >
           <div className="p-4 sm:p-6 space-y-4 flex-grow flex flex-col">
@@ -73,4 +74,3 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

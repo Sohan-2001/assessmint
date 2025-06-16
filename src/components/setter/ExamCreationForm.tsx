@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createExamAction } from "@/lib/actions/exam.actions"; // updateExamAction will be passed via prop
-import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon, ClockIcon } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -391,16 +391,12 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                             <FormItem className="flex flex-col">
                                 <FormLabel>Opening Time (HH:MM)</FormLabel>
                                 <FormControl>
-                                    <div className="relative">
-                                        <Input 
-                                            type="text" // Using text for better control with regex, type="time" can be inconsistent
-                                            placeholder="e.g., 09:30" 
-                                            {...field} 
-                                            value={field.value ?? ""}
-                                            className="pr-8"
-                                        />
-                                        <ClockIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" />
-                                    </div>
+                                    <Input 
+                                        type="time" 
+                                        placeholder="e.g., 09:30" 
+                                        {...field} 
+                                        value={field.value ?? ""}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

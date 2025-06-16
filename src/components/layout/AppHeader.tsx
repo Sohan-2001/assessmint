@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { BookOpenCheck, LogIn, LogOut, UserPlus, Settings, LayoutDashboard, ScrollText, ListChecks, FileText, SparklesIcon } from 'lucide-react';
+import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, FileText, SparklesIcon, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -13,23 +13,45 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetClose, // Added for programmatically closing or if used directly
+} from "@/components/ui/sheet";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter } from 'next/navigation';
-import { useAiPanel } from '@/contexts/AiPanelContext'; // Import the hook
+import { useAiPanel } from '@/contexts/AiPanelContext';
+import { useState } from 'react'; // Added for mobile menu state
 
 export function AppHeader() {
   const { isAuthenticated, userRole, logout, isLoading } = useAuth();
-  const { setIsAiPanelOpen } = useAiPanel(); // Consume the context
+  const { setIsAiPanelOpen } = useAiPanel();
   const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
+    setIsMobileMenuOpen(false); // Close mobile menu on logout
   };
 
   const getInitials = (role: string | null) => {
     if (!role) return "U";
     return role.charAt(0).toUpperCase();
-  }
+  };
+
+  const commonMobileLinkStyles = "w-full justify-start py-3 text-base";
+  const commonMobileIconStyles = "mr-3 h-5 w-5";
+
+  const navigateAndCloseMobileMenu = (path: string) => {
+    router.push(path);
+    setIsMobileMenuOpen(false);
+  };
+
+  const openAiPanelAndCloseMobileMenu = () => {
+    setIsAiPanelOpen(true);
+    setIsMobileMenuOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
@@ -38,7 +60,9 @@ export function AppHeader() {
           <BookOpenCheck className="h-8 w-8 text-primary" />
           <span className="text-2xl font-headline font-bold text-primary">AssessMint</span>
         </Link>
-        <nav className="flex items-center gap-4">
+
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-x-1 lg:gap-x-2">
           {isLoading ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
           ) : isAuthenticated ? (
@@ -46,26 +70,25 @@ export function AppHeader() {
               {userRole === 'setter' && (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link href="/setter/dashboard"><LayoutDashboard className="mr-2" />Dashboard</Link>
+                    <Link href="/setter/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
                   </Button>
                   <Button variant="ghost" asChild>
-                    <Link href="/setter/create-exam"><FileText className="mr-2" />Create Exam</Link>
+                    <Link href="/setter/create-exam"><FileText className="mr-2 h-5 w-5" />Create Exam</Link>
                   </Button>
                   <Button variant="ghost" onClick={() => setIsAiPanelOpen(true)}>
-                    <SparklesIcon className="mr-2" />AI Questions
+                    <SparklesIcon className="mr-2 h-5 w-5" />AI Questions
                   </Button>
                 </>
               )}
               {userRole === 'taker' && (
                 <Button variant="ghost" asChild>
-                  <Link href="/taker/exams"><ListChecks className="mr-2" />Available Exams</Link>
+                  <Link href="/taker/exams"><ListChecks className="mr-2 h-5 w-5" />Available Exams</Link>
                 </Button>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-9 w-9">
-                       {/* Placeholder for user image */}
                       <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(userRole)}</AvatarFallback>
                     </Avatar>
                   </Button>
@@ -76,16 +99,9 @@ export function AppHeader() {
                       <p className="text-sm font-medium leading-none">
                         {userRole === 'setter' ? 'Exam Setter' : 'Exam Taker'}
                       </p>
-                      {/* <p className="text-xs leading-none text-muted-foreground">
-                        user@example.com 
-                      </p> */}
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {/* <DropdownMenuItem onClick={() => router.push(userRole === 'setter' ? '/setter/settings' : '/taker/settings')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem> */}
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
@@ -124,6 +140,93 @@ export function AppHeader() {
             </>
           )}
         </nav>
+
+        {/* Mobile Navigation Trigger */}
+        <div className="md:hidden">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-full max-w-xs p-0 bg-card flex flex-col">
+              <div className="p-6 border-b">
+                <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+                  <BookOpenCheck className="h-7 w-7 text-primary" />
+                  <span className="text-xl font-headline font-bold text-primary">AssessMint</span>
+                </Link>
+              </div>
+
+              <nav className="flex-grow p-6 space-y-3">
+                {isLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-8 w-full animate-pulse rounded-md bg-muted"></div>
+                    <div className="h-8 w-full animate-pulse rounded-md bg-muted"></div>
+                  </div>
+                ) : isAuthenticated ? (
+                  <>
+                    {userRole === 'setter' && (
+                      <>
+                        <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter/dashboard')}>
+                          <LayoutDashboard className={commonMobileIconStyles} />Dashboard
+                        </Button>
+                        <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter/create-exam')}>
+                          <FileText className={commonMobileIconStyles} />Create Exam
+                        </Button>
+                        <Button variant="ghost" className={commonMobileLinkStyles} onClick={openAiPanelAndCloseMobileMenu}>
+                          <SparklesIcon className={commonMobileIconStyles} />AI Questions
+                        </Button>
+                      </>
+                    )}
+                    {userRole === 'taker' && (
+                      <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker/exams')}>
+                        <ListChecks className={commonMobileIconStyles} />Available Exams
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="block px-2 py-1 text-sm font-medium text-muted-foreground">Exam Setter</span>
+                    <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter-sign-in')}>
+                      <LogIn className={commonMobileIconStyles} /> Sign In
+                    </Button>
+                    <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter-sign-up')}>
+                      <UserPlus className={commonMobileIconStyles} /> Sign Up
+                    </Button>
+                    <DropdownMenuSeparator className="my-3"/>
+                    <span className="block px-2 py-1 text-sm font-medium text-muted-foreground">Exam Taker</span>
+                     <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker-sign-in')}>
+                      <LogIn className={commonMobileIconStyles} /> Sign In
+                    </Button>
+                    <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker-sign-up')}>
+                      <UserPlus className={commonMobileIconStyles} /> Sign Up
+                    </Button>
+                  </>
+                )}
+              </nav>
+              
+              {isAuthenticated && (
+                <div className="mt-auto p-6 border-t">
+                   <div className="flex items-center mb-4">
+                      <Avatar className="h-10 w-10 mr-3">
+                        <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(userRole)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium leading-none">
+                          {userRole === 'setter' ? 'Exam Setter' : 'Exam Taker'}
+                        </p>
+                        {/* <p className="text-xs leading-none text-muted-foreground">user@example.com</p> */}
+                      </div>
+                    </div>
+                  <Button variant="ghost" className={commonMobileLinkStyles} onClick={handleLogout}>
+                    <LogOut className={commonMobileIconStyles} />Log out
+                  </Button>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   );

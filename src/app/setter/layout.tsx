@@ -10,7 +10,7 @@ import { useAiPanel } from "@/contexts/AiPanelContext";
 import { Button } from "@/components/ui/button";
 
 // Define initial panel width classes for different breakpoints
-const AI_PANEL_WIDTH_CLASSES = "w-full md:w-[30rem] lg:w-[35rem] xl:w-[40rem]";
+const AI_PANEL_WIDTH_CLASSES = "w-[20rem] md:w-[30rem] lg:w-[35rem] xl:w-[40rem]";
 
 export default function SetterLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, userRole, isLoading: isAuthLoading } = useAuth();
@@ -33,7 +33,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <main className={`overflow-y-auto ${isAiPanelOpen ? 'hidden md:flex-1' : 'flex-1'}`}>
+      <main className="overflow-y-auto flex-1">
         <div className="p-4 sm:p-6 md:p-8">
           {children}
         </div>

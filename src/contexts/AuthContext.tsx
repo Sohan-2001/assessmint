@@ -1,6 +1,7 @@
+
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, type ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 export type UserRole = 'setter' | 'taker' | null;
@@ -54,10 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
     setUserRole(null);
     localStorage.removeItem('assessMintAuth');
-    // Redirect to home or login page, ensure it's not a protected route loop
-    if (pathname?.startsWith('/setter') || pathname?.startsWith('/taker')) {
-      router.push('/');
-    }
+    router.push('/'); // Always redirect to home on logout
   };
 
   return (

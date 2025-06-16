@@ -11,6 +11,18 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
+// PanelBodyContent remains a shared component for the form area
+const PanelBodyContent = () => (
+  <div className="p-2 space-y-2 flex-grow flex flex-col overflow-y-auto">
+    <p className="text-xs text-muted-foreground">
+      Paste your syllabus content below. The AI will analyze it and suggest relevant exam questions.
+    </p>
+    <div className="flex-grow min-h-0"> 
+      <SyllabusToQuestionsForm />
+    </div>
+  </div>
+);
+
 export default function SetterLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, userRole, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
@@ -30,18 +42,6 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
       </div>
     );
   }
-
-  // Shared content for the panel's body (form area)
-  const PanelBodyContent = () => (
-    <div className="p-2 space-y-2 flex-grow flex flex-col overflow-y-auto"> {/* p-3, space-y-3 -> p-2, space-y-2 */}
-      <p className="text-xs text-muted-foreground">
-        Paste your syllabus content below. The AI will analyze it and suggest relevant exam questions.
-      </p>
-      <div className="flex-grow min-h-0"> 
-        <SyllabusToQuestionsForm />
-      </div>
-    </div>
-  );
 
   return (
     <div className={`flex h-screen ${isMobile ? 'flex-col' : 'md:flex-row'}`}>
@@ -66,7 +66,6 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
                 p-0 
               "
               onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click for mobile top sheet
-              hideCloseButton={true} // Hide default close button from SheetContent
             >
               <SheetHeader className="flex flex-row justify-between items-center p-2 border-b shrink-0 sticky top-0 bg-card z-10">
                 <SheetTitle className="text-base font-headline text-primary flex items-center">
@@ -78,7 +77,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
                     type="submit"
                     form="syllabus-form" 
                     size="sm" 
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 py-1" 
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 py-1 text-xs" 
                   >
                     <Sparkles className="mr-1 h-3.5 w-3.5" /> 
                     Generate
@@ -123,3 +122,4 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

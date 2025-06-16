@@ -1,12 +1,14 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
+  // directUrl = env("DIRECT_URL") // Removed as per user's setup
 }
 
 model User {
@@ -14,10 +16,11 @@ model User {
   email     String   @unique
   password  String
   role      Role
-  exams     Exam[]   @relation("SetterExams")
-  submissions UserSubmission[] @relation("TakerSubmissions")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  exams       Exam[]
+  submissions UserSubmission[]
 }
 
 enum Role {
@@ -26,32 +29,43 @@ enum Role {
 }
 
 model Exam {
-  id        String   @id @default(cuid())
-  title     String
-  description String?
-  passcode  String
-  setter    User     @relation("SetterExams", fields: [setterId], references: [id])
-  setterId  String
-  questions Question[]
-  submissions UserSubmission[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  passcode        String
+  setterId        String
+  user            User      @relation(fields: [setterId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   durationMinutes Int?
-  openAt    DateTime? // New field for scheduled opening time
+  openAt          DateTime?
+
+  questions   Question[]
+  submissions UserSubmission[]
 }
 
 model Question {
-  id        String   @id @default(cuid())
-  text      String
-  type      QuestionType
-  exam      Exam     @relation(fields: [examId], references: [id])
-  examId    String
-  options   QuestionOption[]
+  id            String    @id @default(cuid())
+  text          String
+  type          QuestionType
   correctAnswer String?
-  points    Int
-  answers   UserAnswer[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  points        Int
+  examId        String
+  exam          Exam      @relation(fields: [examId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  options QuestionOption[]
+  answers UserAnswer[]
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  text       String
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum QuestionType {
@@ -60,35 +74,26 @@ enum QuestionType {
   ESSAY
 }
 
-model QuestionOption {
-  id        String   @id @default(cuid())
-  text      String
-  question  Question @relation(fields: [questionId], references: [id])
-  questionId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model UserSubmission {
-  id          String    @id @default(cuid())
-  exam        Exam      @relation(fields: [examId], references: [id])
+  id          String   @id @default(cuid())
   examId      String
-  taker       User      @relation("TakerSubmissions", fields: [takerId], references: [id])
+  exam        Exam     @relation(fields: [examId], references: [id])
   takerId     String
-  answers     UserAnswer[]
-  submittedAt DateTime  @default(now())
-  score       Float? // Optional: if you implement auto-grading or manual grading
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  taker       User     @relation(fields: [takerId], references: [id])
+  submittedAt DateTime @default(now())
+  score       Int?
+
+  answers UserAnswer[]
 }
 
 model UserAnswer {
-  id           String      @id @default(cuid())
-  submission   UserSubmission @relation(fields: [submissionId], references: [id])
+  id           String   @id @default(cuid())
   submissionId String
-  question     Question    @relation(fields: [questionId], references: [id])
+  submission   UserSubmission @relation(fields: [submissionId], references: [id])
   questionId   String
-  answer       Json // Store answer as string for text/essay, option ID for MCQ
+  question     Question @relation(fields: [questionId], references: [id])
+  answer       Json // Can be string (MCQ option ID, short answer) or string[] (for future multi-select)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

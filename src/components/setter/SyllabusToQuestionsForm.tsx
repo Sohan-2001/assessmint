@@ -7,14 +7,31 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { generateExamQuestionsAction } from "@/lib/actions/ai.actions";
 import { Loader2, Sparkles } from "lucide-react";
-import type { GenerateQuestionsOutput } from "@/ai/flows/generate-questions-from-syllabus";
+import type { GenerateQuestionsInput, GenerateQuestionsOutput } from "@/ai/flows/generate-questions-from-syllabus";
 
 const formSchema = z.object({
   syllabus: z.string().min(50, { message: "Syllabus must be at least 50 characters long." }),
+  generateMcqs: z.boolean().default(false),
+  generateTwoMarkQuestions: z.boolean().default(false),
+  generateFiveMarkQuestions: z.boolean().default(false),
+  isCustomMarks: z.boolean().default(false),
+  customQuestionMarksInput: z.string().optional(),
+}).refine(data => {
+  if (data.isCustomMarks) {
+    if (!data.customQuestionMarksInput || data.customQuestionMarksInput.trim() === "") return false; // Must be provided
+    const num = Number(data.customQuestionMarksInput);
+    return !isNaN(num) && num > 0;
+  }
+  return true;
+}, {
+  message: "Custom marks must be a positive number if 'Custom Marks' is checked.",
+  path: ["customQuestionMarksInput"],
 });
 
 export function SyllabusToQuestionsForm() {
@@ -26,14 +43,45 @@ export function SyllabusToQuestionsForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       syllabus: "",
+      generateMcqs: false,
+      generateTwoMarkQuestions: false,
+      generateFiveMarkQuestions: false,
+      isCustomMarks: false,
+      customQuestionMarksInput: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     setGeneratedQuestions(null);
+
+    let apiPayload: GenerateQuestionsInput = {
+      syllabus: values.syllabus,
+      generateMcqs: values.generateMcqs,
+      generateTwoMarkQuestions: values.generateTwoMarkQuestions,
+      generateFiveMarkQuestions: values.generateFiveMarkQuestions,
+    };
+
+    if (values.isCustomMarks && values.customQuestionMarksInput) {
+      const customMarksNum = Number(values.customQuestionMarksInput);
+      // Zod refine should catch invalid numbers, but check anyway.
+      if (!isNaN(customMarksNum) && customMarksNum > 0) {
+        apiPayload.customQuestionMarks = customMarksNum;
+      } else {
+        // This case should ideally not be hit if Zod validation is working correctly client-side.
+        // But if it does, provide feedback.
+         toast({
+           title: "Invalid Input",
+           description: "Custom marks value is not a valid positive number.",
+           variant: "destructive",
+         });
+        setIsLoading(false);
+        return;
+      }
+    }
+    
     try {
-      const result = await generateExamQuestionsAction({ syllabus: values.syllabus });
+      const result = await generateExamQuestionsAction(apiPayload);
       if (result.success && result.data) {
         setGeneratedQuestions(result.data);
         toast({
@@ -81,6 +129,57 @@ export function SyllabusToQuestionsForm() {
                 </FormItem>
               )}
             />
+
+            <div className="space-y-2 pt-1">
+              <FormLabel className="text-xs md:text-sm font-medium">Question Types/Marks (Optional)</FormLabel>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 md:grid-cols-3 items-start">
+                <FormField control={form.control} name="generateMcqs" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-1.5 space-y-0">
+                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} id="generateMcqs" /></FormControl>
+                    <FormLabel htmlFor="generateMcqs" className="text-xs font-normal cursor-pointer">MCQs</FormLabel>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="generateTwoMarkQuestions" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-1.5 space-y-0">
+                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} id="generateTwoMarkQuestions" /></FormControl>
+                    <FormLabel htmlFor="generateTwoMarkQuestions" className="text-xs font-normal cursor-pointer">2 Marks</FormLabel>
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="generateFiveMarkQuestions" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-1.5 space-y-0">
+                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} id="generateFiveMarkQuestions" /></FormControl>
+                    <FormLabel htmlFor="generateFiveMarkQuestions" className="text-xs font-normal cursor-pointer">5 Marks</FormLabel>
+                  </FormItem>
+                )} />
+                 <div className="flex items-center space-x-1.5 col-span-2 md:col-span-2">
+                    <FormField control={form.control} name="isCustomMarks" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-1.5 space-y-0">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} id="isCustomMarks" /></FormControl>
+                            <FormLabel htmlFor="isCustomMarks" className="text-xs font-normal cursor-pointer">Custom:</FormLabel>
+                        </FormItem>
+                    )} />
+                    {form.watch("isCustomMarks") && (
+                        <FormField control={form.control} name="customQuestionMarksInput" render={({ field }) => (
+                            <FormItem className="flex-grow max-w-[120px]">
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        placeholder="e.g., 10"
+                                        className="h-7 text-[11px] px-2 py-1"
+                                        {...field}
+                                        value={field.value ?? ""}
+                                        min="1"
+                                    />
+                                </FormControl>
+                                <FormMessage className="text-xs" />
+                            </FormItem>
+                        )} />
+                    )}
+                </div>
+              </div>
+            </div>
+
+
           <div className="hidden md:flex justify-end pt-1"> 
             <Button type="submit" disabled={isLoading} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs md:text-sm">
               {isLoading ? (
@@ -106,7 +205,7 @@ export function SyllabusToQuestionsForm() {
         </div>
       )}
 
-      {generatedQuestions && generatedQuestions.questions && !isLoading && (
+      {generatedQuestions && generatedQuestions.questions && generatedQuestions.questions.length > 0 && !isLoading && (
         <div className="mt-3 md:mt-4 border-t pt-2 md:pt-3">
           <h3 className="text-sm md:text-base font-headline font-semibold text-primary mb-1.5 md:mb-2">Suggested Questions:</h3>
           <div className="space-y-2 overflow-y-auto max-h-[150px] md:max-h-[200px] pr-1 md:pr-2">
@@ -124,6 +223,11 @@ export function SyllabusToQuestionsForm() {
           </p>
         </div>
       )}
+       {generatedQuestions && generatedQuestions.questions && generatedQuestions.questions.length === 0 && !isLoading && (
+         <div className="mt-3 md:mt-4 border-t pt-2 md:pt-3">
+            <p className="text-xs md:text-sm text-muted-foreground text-center py-4">No questions were generated based on the provided syllabus and criteria. Try refining your input.</p>
+         </div>
+       )}
     </div>
   );
 }

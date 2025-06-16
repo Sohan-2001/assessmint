@@ -344,7 +344,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
 
             <div className="space-y-4 p-3 md:p-4 lg:p-6 border rounded-lg bg-card">
                  <h3 className="text-base md:text-lg lg:text-xl font-headline font-semibold text-primary">Scheduling (Optional)</h3>
-                 <div className="grid md:grid-cols-2 gap-4 items-start">
+                 <div className="grid md:grid-cols-2 gap-4 items-end">
                     <FormField
                         control={form.control}
                         name="openDate"
@@ -388,7 +388,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                         control={form.control}
                         name="openTime"
                         render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="flex flex-col">
                                 <FormLabel>Opening Time (HH:MM)</FormLabel>
                                 <FormControl>
                                     <div className="relative">
@@ -521,3 +521,4 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
     </Card>
   );
 }
+

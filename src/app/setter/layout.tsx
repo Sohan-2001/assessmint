@@ -32,39 +32,53 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
   // Shared content for the panel's header
   const PanelHeaderContent = () => (
-    <div className="flex justify-between items-center p-3 border-b shrink-0">
-      <h2 className="text-lg font-headline text-primary flex items-center">
-        <Sparkles className="mr-2 h-4 w-4" /> AI Question Generator
+    <div className="flex justify-between items-center p-2 border-b shrink-0"> {/* p-3 -> p-2 */}
+      <h2 className="text-base font-headline text-primary flex items-center"> {/* text-lg -> text-base */}
+        <Sparkles className="mr-1.5 h-3.5 w-3.5" /> {/* mr-2 h-4 w-4 -> mr-1.5 h-3.5 w-3.5 */}
+        AI Question Generator
       </h2>
-      <Button variant="ghost" size="icon" onClick={() => setIsAiPanelOpen(false)} aria-label="Close AI Panel">
-        <X className="h-4 w-4" />
-      </Button>
+      <div className="flex items-center gap-x-1">
+        {isMobile && isAiPanelOpen && ( // Only show this button on mobile when panel is open
+          <Button
+            type="submit"
+            form="syllabus-form" // ID of the form in SyllabusToQuestionsForm
+            size="sm" 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 py-1" 
+          >
+            <Sparkles className="mr-1 h-3.5 w-3.5" /> 
+            Generate
+          </Button>
+        )}
+        <Button variant="ghost" size="icon" onClick={() => setIsAiPanelOpen(false)} aria-label="Close AI Panel" className="h-7 w-7">
+          <X className="h-3.5 w-3.5" /> {/* h-4 w-4 -> h-3.5 w-3.5 */}
+        </Button>
+      </div>
     </div>
   );
 
   // Shared content for the panel's body (form area)
   const PanelBodyContent = () => (
-    <div className="p-3 space-y-3 flex-grow flex flex-col overflow-y-auto">
+    <div className="p-2 space-y-2 flex-grow flex flex-col overflow-y-auto"> {/* p-3, space-y-3 -> p-2, space-y-2 */}
       <p className="text-xs text-muted-foreground">
         Paste your syllabus content below. The AI will analyze it and suggest relevant exam questions.
       </p>
-      <div className="flex-grow min-h-0"> {/* Ensures form takes available space and can shrink/scroll */}
+      <div className="flex-grow min-h-0"> 
         <SyllabusToQuestionsForm />
       </div>
     </div>
   );
 
   return (
-    <div className={`flex h-screen ${isAiPanelOpen && !isMobile ? 'flex-row' : 'flex-col'}`}>
+    <div className={`flex h-screen ${isMobile ? 'flex-col' : 'flex-row'}`}>
       {/* AI Panel - Mobile (Top, Resizable Vertically) */}
       {isAiPanelOpen && isMobile && (
         <aside
           className="
-            w-full h-[40vh] /* Initial height */
-            min-h-[200px] max-h-[70vh] /* Vertical resize constraints */
+            w-full h-[40vh] 
+            min-h-[200px] max-h-[70vh] 
             bg-card border-b border-border 
             flex flex-col 
-            overflow-auto resize-y /* Enable vertical resize & scrolling */
+            overflow-auto resize-y 
             transition-opacity duration-300 ease-in-out
           "
         >
@@ -75,7 +89,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
       {/* Main Content Area */}
       <main className="overflow-y-auto flex-1 w-full">
-        <div className={isAiPanelOpen && isMobile ? "p-2" : "p-4 sm:p-6 md:p-8"}>
+        <div className={(isAiPanelOpen && isMobile) ? "p-2" : "p-4 sm:p-6 md:p-8"}>
           {children}
         </div>
       </main>
@@ -84,11 +98,11 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
       {isAiPanelOpen && !isMobile && (
         <aside
           className="
-            md:w-[30rem] lg:w-[35rem] xl:w-[40rem] /* Desktop widths */
+            md:w-[30rem] lg:w-[35rem] xl:w-[40rem] 
             h-full 
             bg-card border-l border-border 
             flex flex-col 
-            overflow-auto md:resize-x /* Enable horizontal resize & scrolling */
+            overflow-auto md:resize-x 
             md:min-w-[18rem] md:max-w-2xl 
             transition-opacity duration-300 ease-in-out
           "

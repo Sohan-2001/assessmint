@@ -59,37 +59,39 @@ export function SyllabusToQuestionsForm() {
   }
 
   return (
-    <div className="space-y-4"> {/* Reduced space-y from 6 to 4 */}
+    <div className="space-y-2"> {/* Reduced space-y */}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"> {/* Reduced space-y from 6 to 4 */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3" id="syllabus-form"> {/* Reduced space-y, added ID */}
             <FormField
               control={form.control}
               name="syllabus"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="syllabus" className="text-base font-medium">Syllabus Content</FormLabel> {/* Changed text-lg to text-base */}
+                  <FormLabel htmlFor="syllabus" className="text-sm font-medium">Syllabus Content</FormLabel> {/* text-base -> text-sm */}
                   <FormControl>
                     <Textarea
                       id="syllabus"
                       placeholder="Paste your syllabus here..."
-                      className="min-h-[120px] text-sm" /* Reduced min-h, changed text-base to text-sm */
+                      className="min-h-[100px] text-xs" /* Reduced min-h, text-sm -> text-xs */
                       {...field}
+                      disabled={isLoading} // Disable textarea while loading
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          <div className="flex justify-end pt-1"> {/* Reduced pt from 2 to 1 */}
-            <Button type="submit" disabled={isLoading} size="default" className="bg-primary hover:bg-primary/90 text-primary-foreground"> {/* Changed size from lg to default */}
+          {/* Button below is hidden on mobile (screens smaller than md), visible on md and up */}
+          <div className="hidden md:flex justify-end pt-1"> 
+            <Button type="submit" disabled={isLoading} size="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {/* size="default" button makes icon h-4 w-4 */}
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" /> {/* size="default" button makes icon h-4 w-4 */}
+                  <Sparkles className="mr-2 h-4 w-4" />
                   Generate Questions
                 </>
               )}
@@ -98,13 +100,20 @@ export function SyllabusToQuestionsForm() {
         </form>
       </Form>
 
-      {generatedQuestions && (
-        <div className="mt-6 border-t pt-4"> {/* Reduced mt and pt */}
-          <h3 className="text-lg font-headline font-semibold text-primary mb-3">Suggested Questions:</h3> {/* Reduced font size and mb */}
-          <div className="p-2 bg-muted rounded-md whitespace-pre-wrap text-xs overflow-x-auto max-h-[200px]"> {/* Reduced p, text-sm to text-xs, max-h */}
+      {isLoading && ( // Show a loading indicator for the results area
+        <div className="mt-4 flex items-center justify-center">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary"/>
+            <p className="text-sm text-muted-foreground">Generating questions...</p>
+        </div>
+      )}
+
+      {generatedQuestions && !isLoading && ( // Only show results if not loading
+        <div className="mt-4 border-t pt-3"> {/* Reduced mt and pt */}
+          <h3 className="text-base font-headline font-semibold text-primary mb-2">Suggested Questions:</h3> {/* Reduced font size and mb */}
+          <div className="p-1.5 bg-muted rounded-md whitespace-pre-wrap text-xs overflow-x-auto max-h-[150px]"> {/* Reduced p, max-h */}
             {generatedQuestions.questions}
           </div>
-          <p className="mt-3 text-xs text-muted-foreground"> {/* Reduced mt and text-sm to text-xs */}
+          <p className="mt-2 text-xs text-muted-foreground"> {/* Reduced mt */}
             Review these questions and adapt them as needed for your exam. You can copy and paste them into the exam creation form.
           </p>
         </div>

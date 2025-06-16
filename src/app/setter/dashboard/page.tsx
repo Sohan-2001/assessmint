@@ -33,13 +33,15 @@ export default function SetterDashboardPage() {
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Manage Exams</CardTitle>
-            <BookText className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
+            <BookText className="h-7 w-7 md:h-8 md:w-8 text-primary" />
           </CardHeader>
           <CardContent>
             <CardDescription className="mb-4 text-sm md:text-base">
-              View, edit, and manage all your created exams. (Coming Soon)
+              View, edit, and delete all your created exams.
             </CardDescription>
-            <Button disabled className="w-full text-sm md:text-base">View Exams</Button>
+            <Button asChild className="w-full text-sm md:text-base bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Link href="/setter/manage-exams">View Exams</Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -69,3 +71,4 @@ export default function SetterDashboardPage() {
     </div>
   );
 }
+

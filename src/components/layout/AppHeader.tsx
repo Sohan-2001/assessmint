@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -14,9 +15,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from 'next/navigation';
+import { useAiPanel } from '@/contexts/AiPanelContext'; // Import the hook
 
 export function AppHeader() {
   const { isAuthenticated, userRole, logout, isLoading } = useAuth();
+  const { setIsAiPanelOpen } = useAiPanel(); // Consume the context
   const router = useRouter();
 
   const handleLogout = () => {
@@ -48,8 +51,8 @@ export function AppHeader() {
                   <Button variant="ghost" asChild>
                     <Link href="/setter/create-exam"><FileText className="mr-2" />Create Exam</Link>
                   </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/setter/generate-questions"><SparklesIcon className="mr-2" />AI Questions</Link>
+                  <Button variant="ghost" onClick={() => setIsAiPanelOpen(true)}>
+                    <SparklesIcon className="mr-2" />AI Questions
                   </Button>
                 </>
               )}

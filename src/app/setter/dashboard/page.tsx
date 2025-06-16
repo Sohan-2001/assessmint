@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -5,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PlusCircle, BookText, BarChart3, Settings, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext"; // Assuming user info might be displayed
+import { useAiPanel } from '@/contexts/AiPanelContext'; // Import the hook
 
 export default function SetterDashboardPage() {
   const { userRole } = useAuth(); // Example: personalize dashboard
+  const { setIsAiPanelOpen } = useAiPanel(); // Consume the context
 
   return (
     <div className="space-y-8">
@@ -38,8 +41,8 @@ export default function SetterDashboardPage() {
             <CardDescription className="mb-4">
               Generate questions quickly by providing a syllabus or topic.
             </CardDescription>
-            <Button asChild className="w-full">
-              <Link href="/setter/generate-questions">Generate Questions</Link>
+            <Button onClick={() => setIsAiPanelOpen(true)} className="w-full">
+              Generate Questions
             </Button>
           </CardContent>
         </Card>

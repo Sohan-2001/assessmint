@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -6,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { generateExamQuestionsAction } from "@/lib/actions/ai.actions";
@@ -59,24 +59,15 @@ export function SyllabusToQuestionsForm() {
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-xl">
-      <CardHeader>
-        <CardTitle className="text-3xl font-headline text-primary flex items-center">
-          <Sparkles className="mr-2 h-7 w-7 text-primary" /> AI Question Generator
-        </CardTitle>
-        <CardDescription>
-          Paste your course syllabus below, and our AI will help you generate relevant exam questions.
-        </CardDescription>
-      </CardHeader>
+    <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="syllabus"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel htmlFor="syllabus" className="text-lg">Syllabus Content</FormLabel>
+                  <FormLabel htmlFor="syllabus" className="text-lg font-medium">Syllabus Content</FormLabel>
                   <FormControl>
                     <Textarea
                       id="syllabus"
@@ -89,8 +80,7 @@ export function SyllabusToQuestionsForm() {
                 </FormItem>
               )}
             />
-          </CardContent>
-          <CardFooter className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {isLoading ? (
                 <>
@@ -104,21 +94,21 @@ export function SyllabusToQuestionsForm() {
                 </>
               )}
             </Button>
-          </CardFooter>
+          </div>
         </form>
       </Form>
 
       {generatedQuestions && (
-        <CardContent className="mt-6 border-t pt-6">
-          <h3 className="text-2xl font-headline font-semibold text-primary mb-4">Suggested Questions:</h3>
-          <div className="p-4 bg-muted rounded-md whitespace-pre-wrap text-sm overflow-x-auto">
+        <div className="mt-8 border-t pt-6">
+          <h3 className="text-xl font-headline font-semibold text-primary mb-4">Suggested Questions:</h3>
+          <div className="p-4 bg-muted rounded-md whitespace-pre-wrap text-sm overflow-x-auto max-h-[300px]">
             {generatedQuestions.questions}
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
             Review these questions and adapt them as needed for your exam. You can copy and paste them into the exam creation form.
           </p>
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }

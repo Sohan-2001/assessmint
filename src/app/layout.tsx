@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from '@/components/Providers';
 import { AppHeader } from '@/components/layout/AppHeader';
+import { AiPanelProvider } from '@/contexts/AiPanelContext';
 
 export const metadata: Metadata = {
   title: 'AssessMint - Modern Exam Platform',
@@ -23,11 +24,13 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <Providers>
-          <div className="flex min-h-screen flex-col">
-            <AppHeader />
-            <main className="flex-grow">{children}</main>
-            {/* Optional Footer can be added here */}
-          </div>
+          <AiPanelProvider> {/* Provider wraps content that might use/trigger the panel */}
+            <div className="flex min-h-screen flex-col">
+              <AppHeader />
+              <main className="flex-grow">{children}</main>
+              {/* Optional Footer can be added here */}
+            </div>
+          </AiPanelProvider>
         </Providers>
       </body>
     </html>

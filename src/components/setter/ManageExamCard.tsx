@@ -18,28 +18,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation"; // Import useRouter
 
 type ManageExamCardProps = {
   exam: Exam;
   onDelete: (examId: string) => Promise<boolean>;
-  // onEdit: (examId: string) => void; // For future use
 };
 
 export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
+  const router = useRouter(); // Initialize router
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
-    const success = await onDelete(exam.id);
+    await onDelete(exam.id); // Toast for success/failure is handled by the parent page
     setIsDeleting(false);
-    // Toast for success/failure is handled by the parent page after onDelete promise resolves
   };
   
   const handleEdit = () => {
-    // Placeholder for edit functionality
-    toast({ title: "Coming Soon", description: "Editing exams will be available in a future update."});
+    router.push(`/setter/edit-exam/${exam.id}`);
   };
 
   return (

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -12,17 +12,17 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createExamAction } from "@/lib/actions/exam.actions";
-import { Loader2, PlusCircle, Trash2, Save, ListChecks } from "lucide-react";
+import { createExamAction } from "@/lib/actions/exam.actions"; // updateExamAction will be passed via prop
+import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const questionOptionSchema = z.object({
-  id: z.string().default(() => `opt_${Math.random().toString(36).substr(2, 9)}`),
+  id: z.string().optional(), // ID is optional, can be undefined for new options during edit
   text: z.string().min(1, "Option text cannot be empty"),
 });
 
 const questionSchema = z.object({
-  id: z.string().default(() => `q_${Math.random().toString(36).substr(2, 9)}`),
+  id: z.string().optional(), // ID is optional, can be undefined for new questions during edit
   text: z.string().min(1, "Question text cannot be empty"),
   type: z.enum(["MULTIPLE_CHOICE", "SHORT_ANSWER", "ESSAY"]),
   options: z.array(questionOptionSchema).optional(),
@@ -30,7 +30,8 @@ const questionSchema = z.object({
   points: z.coerce.number().min(0, "Points must be non-negative").default(0),
 });
 
-const examFormSchema = z.object({
+// Exporting for use in edit page
+export const examFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long"),
   description: z.string().optional(),
   passcode: z.string().min(4, "Passcode must be at least 4 characters long"),
@@ -41,14 +42,21 @@ const examFormSchema = z.object({
 type ExamFormValues = z.infer<typeof examFormSchema>;
 type QuestionFormValues = z.infer<typeof questionSchema>;
 
-function QuestionOptions({ control, questionIndex, questionType }: { control: any, questionIndex: number, questionType: QuestionFormValues['type'] }) {
+interface ExamCreationFormProps {
+    initialData?: ExamFormValues | null;
+    examIdToUpdate?: string;
+    onSubmitOverride?: (values: ExamFormValues) => Promise<void>;
+}
+
+
+function QuestionOptions({ control, questionIndex, questionType, form }: { control: any, questionIndex: number, questionType: QuestionFormValues['type'], form: any }) {
   const { fields: optionFields, append: appendOption, remove: removeOption } = useFieldArray({
     control,
     name: `questions.${questionIndex}.options`
   });
 
   const handleAddOption = () => {
-    appendOption({ text: "" });
+    appendOption({ id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, text: "" });
   };
 
   if (questionType !== 'MULTIPLE_CHOICE') {
@@ -59,7 +67,7 @@ function QuestionOptions({ control, questionIndex, questionType }: { control: an
     <div className="pl-2 md:pl-4 border-l-2 border-primary/50 space-y-2 mt-2">
       <h5 className="text-sm md:text-base font-medium">Options</h5>
       {optionFields.map((optionItem, optionIndex) => (
-         <div key={optionItem.id} className="flex items-center gap-2">
+         <div key={optionItem.id || `option-${questionIndex}-${optionIndex}`} className="flex items-center gap-2">
            <FormField control={control} name={`questions.${questionIndex}.options.${optionIndex}.text`} render={({ field }) => (
              <FormItem className="flex-grow">
                <FormControl><Input placeholder={`Option ${optionIndex + 1}`} {...field} value={field.value ?? ""} /></FormControl>
@@ -91,31 +99,52 @@ function QuestionOptions({ control, questionIndex, questionType }: { control: an
 }
 
 
-export function ExamCreationForm() {
-  const [isLoading, setIsLoading] = useState(false);
+export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride }: ExamCreationFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const isEditMode = !!initialData && !!examIdToUpdate;
 
+  const defaultQuestionValues = {
+    id: `new_q_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    text: "",
+    type: "MULTIPLE_CHOICE" as QuestionFormValues['type'],
+    points: 10,
+    options: [
+        { id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}a`, text: "" },
+        { id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}b`, text: "" }
+    ],
+    correctAnswer: undefined,
+  };
+  
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
-    defaultValues: {
+    defaultValues: initialData ? initialData : {
       title: "",
       description: "",
-      passcode: "",
-      durationMinutes: undefined,
-      questions: [{
-        id: `q_${Math.random().toString(36).substr(2, 9)}`,
-        text: "",
-        type: "MULTIPLE_CHOICE",
-        points: 10,
-        options: [
-            { id: `opt_${Math.random().toString(36).substr(2, 9)}`, text: "" },
-            { id: `opt_${Math.random().toString(36).substr(2, 9)}`, text: "" }
-        ],
-        correctAnswer: undefined, // Explicitly undefined initially
-      }],
+      passcode: "", // For edit mode, user might need to re-enter or we might hide this
+      durationMinutes: null,
+      questions: [defaultQuestionValues],
     },
   });
+
+  // Reset form if initialData changes (e.g., when navigating to edit page after form was already mounted)
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+       // Reset to blank form if initialData becomes null/undefined (e.g. navigating away from edit to create)
+      form.reset({
+        title: "",
+        description: "",
+        passcode: "",
+        durationMinutes: null,
+        questions: [defaultQuestionValues]
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, form.reset]);
+
 
   const { fields: questionFields, append: appendQuestion, remove: removeQuestion } = useFieldArray({
     control: form.control,
@@ -124,57 +153,61 @@ export function ExamCreationForm() {
 
   const addQuestion = () => {
     appendQuestion({
-        id: `q_${Math.random().toString(36).substr(2, 9)}`,
+        id: `new_q_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         text: "",
-        type: "MULTIPLE_CHOICE",
+        type: "MULTIPLE_CHOICE" as QuestionFormValues['type'],
         points: 10,
         options: [
-            { id: `opt_${Math.random().toString(36).substr(2, 9)}`, text: "" },
-            { id: `opt_${Math.random().toString(36).substr(2, 9)}`, text: "" }
+            { id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}c`, text: "" },
+            { id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}d`, text: "" }
         ],
-        correctAnswer: undefined, // New questions also have undefined correctAnswer
+        correctAnswer: undefined,
     });
   };
 
 
   async function onSubmit(values: ExamFormValues) {
-    setIsLoading(true);
-
-    try {
-      const result = await createExamAction(values);
-      if (result.success && result.exam) {
-        toast({
-          title: "Exam Created!",
-          description: `"${result.exam.title}" has been successfully created.`,
-        });
-        form.reset();
-        router.push("/setter/dashboard");
-      } else {
-        toast({
-          title: "Error Creating Exam",
-          description: result.message || "An unexpected error occurred.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to communicate with the server.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    setIsSubmitting(true);
+    if (onSubmitOverride && examIdToUpdate) {
+        await onSubmitOverride(values); // This will call handleUpdateExam from EditExamPage
+    } else {
+        // Original create logic
+        try {
+          const result = await createExamAction(values);
+          if (result.success && result.exam) {
+            toast({
+              title: "Exam Created!",
+              description: `"${result.exam.title}" has been successfully created.`,
+            });
+            form.reset(); // Reset to default values for create form
+            router.push("/setter/dashboard");
+          } else {
+            toast({
+              title: "Error Creating Exam",
+              description: result.message || "An unexpected error occurred.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to communicate with the server.",
+            variant: "destructive",
+          });
+        }
     }
+    setIsSubmitting(false);
   }
 
   return (
     <Card className="w-full mx-auto shadow-xl">
       <CardHeader>
         <CardTitle className="text-xl md:text-2xl lg:text-3xl font-headline text-primary flex items-center">
-          <ListChecks className="mr-2 h-5 w-5 md:h-6 md:w-6 lg:h-7 lg:w-7" /> Create New Exam
+          {isEditMode ? <Edit className="mr-2 h-5 w-5 md:h-6 md:w-6 lg:h-7 lg:w-7" /> : <ListChecks className="mr-2 h-5 w-5 md:h-6 md:w-6 lg:h-7 lg:w-7" />}
+          {isEditMode ? "Edit Exam" : "Create New Exam"}
         </CardTitle>
         <CardDescription className="text-xs md:text-sm lg:text-base">
-          Fill in the details below to create your exam. You can add multiple questions of different types.
+          {isEditMode ? "Modify the details of your exam below." : "Fill in the details below to create your exam. You can add multiple questions of different types."}
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -199,8 +232,8 @@ export function ExamCreationForm() {
               <div className="grid md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="passcode" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Access Passcode</FormLabel>
-                    <FormControl><Input type="password" placeholder="e.g., exam2024" {...field} /></FormControl>
+                    <FormLabel>Access Passcode {isEditMode && "(Leave blank to keep current)"}</FormLabel>
+                    <FormControl><Input type="password" placeholder={isEditMode ? "Enter new passcode or leave blank" : "e.g., exam2024"} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -212,14 +245,14 @@ export function ExamCreationForm() {
                       type="number"
                       placeholder="e.g., 60"
                       {...field}
-                      value={field.value ?? ""}
+                      value={field.value === null || field.value === undefined ? "" : field.value} // Handle null/undefined for input
                       onChange={e => {
                         const val = e.target.value;
                         if (val === "") {
-                          field.onChange(undefined);
+                          field.onChange(null); // Use null for empty optional number
                         } else {
                           const parsed = parseInt(val, 10);
-                          field.onChange(isNaN(parsed) ? undefined : parsed);
+                          field.onChange(isNaN(parsed) ? null : parsed);
                         }
                       }}
                     />
@@ -233,7 +266,7 @@ export function ExamCreationForm() {
             <div className="space-y-4">
               <h3 className="text-base md:text-lg lg:text-xl font-headline font-semibold text-primary">Questions</h3>
               {questionFields.map((questionItem, questionIndex) => (
-                <Card key={questionItem.id} className="p-3 md:p-4 space-y-3 bg-muted/50">
+                <Card key={questionItem.id || `question-${questionIndex}`} className="p-3 md:p-4 space-y-3 bg-muted/50">
                   <div className="flex justify-between items-center">
                     <h4 className="text-sm md:text-base lg:text-lg font-medium">Question {questionIndex + 1}</h4>
                     {questionFields.length > 1 && (
@@ -263,13 +296,13 @@ export function ExamCreationForm() {
                               const currentOptions = form.getValues(`questions.${questionIndex}.options`);
                               if (!currentOptions || currentOptions.length === 0) {
                                 form.setValue(`questions.${questionIndex}.options`, [
-                                  { id: `opt_${Math.random().toString(36).substr(2, 9)}`, text: "" },
-                                  { id: `opt_${Math.random().toString(36).substr(2, 9)}`, text: "" },
+                                  { id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}e`, text: "" },
+                                  { id: `new_opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}f`, text: "" },
                                 ]);
                               }
                             }
                           }}
-                          defaultValue={field.value}
+                          value={field.value} // Ensure value is controlled
                         >
                           <FormControl><SelectTrigger><SelectValue placeholder="Select question type" /></SelectTrigger></FormControl>
                           <SelectContent>
@@ -293,10 +326,10 @@ export function ExamCreationForm() {
                             onChange={e => {
                               const val = e.target.value;
                               if (val === "") {
-                                field.onChange(undefined);
+                                field.onChange(0); // Default to 0 if empty, or handle as per schema
                               } else {
                                 const parsed = parseInt(val, 10);
-                                field.onChange(isNaN(parsed) ? undefined : parsed);
+                                field.onChange(isNaN(parsed) ? 0 : parsed);
                               }
                             }}
                           />
@@ -310,6 +343,7 @@ export function ExamCreationForm() {
                     control={form.control}
                     questionIndex={questionIndex}
                     questionType={form.watch(`questions.${questionIndex}.type`)}
+                    form={form}
                   />
 
                   {(form.watch(`questions.${questionIndex}.type`) === 'SHORT_ANSWER') && (
@@ -329,9 +363,9 @@ export function ExamCreationForm() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
-              {isLoading ? (<Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin" />) : (<Save className="mr-2 h-4 w-4 md:h-5 md:w-5" />)}
-              {isLoading ? "Saving Exam..." : "Save Exam"}
+            <Button type="submit" disabled={isSubmitting} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
+              {isSubmitting ? (<Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin" />) : (isEditMode ? <Edit className="mr-2 h-4 w-4 md:h-5 md:w-5" /> : <Save className="mr-2 h-4 w-4 md:h-5 md:w-5" />)}
+              {isSubmitting ? (isEditMode ? "Updating..." : "Saving...") : (isEditMode ? "Update Exam" : "Save Exam")}
             </Button>
           </CardFooter>
         </form>

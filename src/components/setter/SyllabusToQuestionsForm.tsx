@@ -72,7 +72,7 @@ export function SyllabusToQuestionsForm() {
                     <Textarea
                       id="syllabus"
                       placeholder="Paste your syllabus here..."
-                      className="min-h-[80px] md:min-h-[100px] text-xs"
+                      className="min-h-[80px] md:min-h-[100px] text-[11px]"
                       {...field}
                       disabled={isLoading}
                     />
@@ -127,4 +127,3 @@ export function SyllabusToQuestionsForm() {
     </div>
   );
 }
-

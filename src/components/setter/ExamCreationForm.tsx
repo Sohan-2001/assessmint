@@ -13,16 +13,21 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createExamAction } from "@/lib/actions/exam.actions"; // updateExamAction will be passed via prop
-import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon, ClockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, parse } from "date-fns";
+import { cn } from "@/lib/utils";
+
 
 const questionOptionSchema = z.object({
-  id: z.string().optional(), // ID is optional, can be undefined for new options during edit
+  id: z.string().optional(),
   text: z.string().min(1, "Option text cannot be empty"),
 });
 
 const questionSchema = z.object({
-  id: z.string().optional(), // ID is optional, can be undefined for new questions during edit
+  id: z.string().optional(),
   text: z.string().min(1, "Question text cannot be empty"),
   type: z.enum(["MULTIPLE_CHOICE", "SHORT_ANSWER", "ESSAY"]),
   options: z.array(questionOptionSchema).optional(),
@@ -30,22 +35,36 @@ const questionSchema = z.object({
   points: z.coerce.number().min(0, "Points must be non-negative").default(0),
 });
 
-// Exporting for use in edit page
 export const examFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long"),
   description: z.string().optional(),
   passcode: z.string().min(4, "Passcode must be at least 4 characters long"),
   durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional().nullable(),
   questions: z.array(questionSchema).min(1, "An exam must have at least one question"),
+  openDate: z.date().optional().nullable(),
+  openTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time (HH:MM)")
+    .optional()
+    .nullable(),
+}).refine(data => {
+    // If one of openDate or openTime is provided, the other must also be provided.
+    if ((data.openDate && !data.openTime) || (!data.openDate && data.openTime)) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Both date and time must be provided for scheduling, or neither.",
+    path: ["openTime"], // Show error next to time field
 });
 
 type ExamFormValues = z.infer<typeof examFormSchema>;
 type QuestionFormValues = z.infer<typeof questionSchema>;
 
 interface ExamCreationFormProps {
-    initialData?: ExamFormValues | null;
+    initialData?: ExamFormValues & { openAt?: Date | null }; // Adjust to include openAt for initial mapping
     examIdToUpdate?: string;
-    onSubmitOverride?: (values: ExamFormValues) => Promise<void>;
+    onSubmitOverride?: (values: ExamFormValues, combinedOpenAt: Date | null) => Promise<void>;
 }
 
 
@@ -116,30 +135,53 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
     ],
     correctAnswer: undefined,
   };
+
+  const mapInitialDataToForm = (data: ExamCreationFormProps['initialData']): ExamFormValues => {
+    let formOpenDate: Date | null = null;
+    let formOpenTime: string | null = null;
+
+    if (data?.openAt) {
+      const openAtDate = new Date(data.openAt);
+      formOpenDate = openAtDate;
+      formOpenTime = format(openAtDate, "HH:mm");
+    }
+    
+    return {
+        title: data?.title || "",
+        description: data?.description || "",
+        passcode: data?.passcode || "",
+        durationMinutes: data?.durationMinutes ?? null,
+        questions: data?.questions?.length ? data.questions : [defaultQuestionValues],
+        openDate: formOpenDate,
+        openTime: formOpenTime,
+    };
+  };
   
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
-    defaultValues: initialData ? initialData : {
+    defaultValues: initialData ? mapInitialDataToForm(initialData) : {
       title: "",
       description: "",
-      passcode: "", // For edit mode, user might need to re-enter or we might hide this
+      passcode: "",
       durationMinutes: null,
       questions: [defaultQuestionValues],
+      openDate: null,
+      openTime: null,
     },
   });
 
-  // Reset form if initialData changes (e.g., when navigating to edit page after form was already mounted)
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData);
+      form.reset(mapInitialDataToForm(initialData));
     } else {
-       // Reset to blank form if initialData becomes null/undefined (e.g. navigating away from edit to create)
       form.reset({
         title: "",
         description: "",
         passcode: "",
         durationMinutes: null,
-        questions: [defaultQuestionValues]
+        questions: [defaultQuestionValues],
+        openDate: null,
+        openTime: null,
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,18 +210,45 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
 
   async function onSubmit(values: ExamFormValues) {
     setIsSubmitting(true);
-    if (onSubmitOverride && examIdToUpdate) {
-        await onSubmitOverride(values); // This will call handleUpdateExam from EditExamPage
-    } else {
-        // Original create logic
+
+    let combinedOpenAt: Date | null = null;
+    if (values.openDate && values.openTime) {
         try {
-          const result = await createExamAction(values);
+            const [hours, minutes] = values.openTime.split(':').map(Number);
+            const dateWithTime = new Date(values.openDate);
+            dateWithTime.setHours(hours, minutes, 0, 0); // Set hours and minutes, seconds and ms to 0
+            combinedOpenAt = dateWithTime;
+        } catch (e) {
+            toast({ title: "Error", description: "Invalid date/time for scheduling.", variant: "destructive" });
+            setIsSubmitting(false);
+            return;
+        }
+    }
+
+
+    if (onSubmitOverride && examIdToUpdate) {
+        // Pass the raw form values AND the combinedOpenAt separately
+        await onSubmitOverride(values, combinedOpenAt); 
+    } else {
+        // Original create logic - requires examData structure for createExamAction
+        const examDataForCreation = {
+            title: values.title,
+            description: values.description,
+            passcode: values.passcode,
+            durationMinutes: values.durationMinutes,
+            questions: values.questions,
+            openAt: combinedOpenAt, // Add the combined openAt here
+        };
+
+        try {
+          // @ts-ignore // TODO: Fix type mismatch if createExamAction expects ExamFormValues directly
+          const result = await createExamAction(examDataForCreation);
           if (result.success && result.exam) {
             toast({
               title: "Exam Created!",
               description: `"${result.exam.title}" has been successfully created.`,
             });
-            form.reset(); // Reset to default values for create form
+            form.reset(); 
             router.push("/setter/dashboard");
           } else {
             toast({
@@ -232,8 +301,8 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
               <div className="grid md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="passcode" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Access Passcode {isEditMode && "(Leave blank to keep current)"}</FormLabel>
-                    <FormControl><Input type="password" placeholder={isEditMode ? "Enter new passcode or leave blank" : "e.g., exam2024"} {...field} /></FormControl>
+                    <FormLabel>Access Passcode {isEditMode && values.passcode && "(Leave blank to keep current)"}</FormLabel>
+                    <FormControl><Input type="password" placeholder={isEditMode ? "Enter new or leave blank" : "e.g., exam2024"} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -245,11 +314,11 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                       type="number"
                       placeholder="e.g., 60"
                       {...field}
-                      value={field.value === null || field.value === undefined ? "" : field.value} // Handle null/undefined for input
+                      value={field.value === null || field.value === undefined ? "" : field.value} 
                       onChange={e => {
                         const val = e.target.value;
                         if (val === "") {
-                          field.onChange(null); // Use null for empty optional number
+                          field.onChange(null); 
                         } else {
                           const parsed = parseInt(val, 10);
                           field.onChange(isNaN(parsed) ? null : parsed);
@@ -262,6 +331,75 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
               )} />
               </div>
             </div>
+
+            <div className="space-y-4 p-3 md:p-4 lg:p-6 border rounded-lg bg-card">
+                 <h3 className="text-base md:text-lg lg:text-xl font-headline font-semibold text-primary">Scheduling (Optional)</h3>
+                 <div className="grid md:grid-cols-2 gap-4 items-start">
+                    <FormField
+                        control={form.control}
+                        name="openDate"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                            <FormLabel>Opening Date</FormLabel>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full pl-3 text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                    )}
+                                    >
+                                    {field.value ? (
+                                        format(field.value, "PPP")
+                                    ) : (
+                                        <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={field.value ?? undefined}
+                                    onSelect={(date) => field.onChange(date ?? null)}
+                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="openTime"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Opening Time (HH:MM)</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Input 
+                                            type="text" // Using text for better control with regex, type="time" can be inconsistent
+                                            placeholder="e.g., 09:30" 
+                                            {...field} 
+                                            value={field.value ?? ""}
+                                            className="pr-8"
+                                        />
+                                        <ClockIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                 </div>
+                 <p className="text-xs text-muted-foreground">If both date and time are set, the exam will only be accessible after this specific time.</p>
+            </div>
+
 
             <div className="space-y-4">
               <h3 className="text-base md:text-lg lg:text-xl font-headline font-semibold text-primary">Questions</h3>
@@ -302,7 +440,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                               }
                             }
                           }}
-                          value={field.value} // Ensure value is controlled
+                          value={field.value}
                         >
                           <FormControl><SelectTrigger><SelectValue placeholder="Select question type" /></SelectTrigger></FormControl>
                           <SelectContent>
@@ -326,7 +464,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                             onChange={e => {
                               const val = e.target.value;
                               if (val === "") {
-                                field.onChange(0); // Default to 0 if empty, or handle as per schema
+                                field.onChange(0); 
                               } else {
                                 const parsed = parseInt(val, 10);
                                 field.onChange(isNaN(parsed) ? 0 : parsed);

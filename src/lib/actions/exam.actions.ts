@@ -4,15 +4,13 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { Exam as PrismaExam, Question as PrismaQuestion, QuestionOption as PrismaQuestionOption, QuestionType as PrismaQuestionType } from "@prisma/client";
-import type { Exam, Question, QuestionOption } from "@/lib/types"; // Keep our frontend types for now
+import type { Exam, Question, QuestionOption } from "@/lib/types"; 
 
-// Zod schema for question options, aligning with Prisma model (ID is optional for creation/update)
 const questionOptionSchemaClient = z.object({
   id: z.string().optional(), 
   text: z.string().min(1, "Option text cannot be empty"),
 });
 
-// Zod schema for questions, aligning with Prisma model
 const questionSchemaClient = z.object({
   id: z.string().optional(), 
   text: z.string().min(1, "Question text cannot be empty"),
@@ -22,28 +20,28 @@ const questionSchemaClient = z.object({
   points: z.coerce.number().min(0, "Points must be a non-negative number"),
 });
 
-// Zod schema for creating/updating an exam
-// For updates, passcode can be optional if not changing.
-const examUpsertSchema = z.object({
+// Zod schema for data coming from the form to the server actions
+const examPayloadSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
-  passcode: z.string().min(4, "Passcode must be at least 4 characters").optional(), // Optional for update if not changing
+  passcode: z.string().min(4, "Passcode must be at least 4 characters").optional(),
   questions: z.array(questionSchemaClient).min(1, "Exam must have at least one question"),
   durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional().nullable(),
+  openAt: z.date().optional().nullable(), // Expecting combined Date object or null
 });
 
 
-// Helper to map Prisma Exam to our frontend Exam type
 function mapPrismaExamToAppExam(prismaExam: PrismaExam & { questions: (PrismaQuestion & { options: PrismaQuestionOption[] })[] }): Exam {
   return {
     ...prismaExam,
     description: prismaExam.description ?? "", 
     durationMinutes: prismaExam.durationMinutes ?? undefined,
+    openAt: prismaExam.openAt ?? undefined,
     questions: prismaExam.questions.map(q => ({
       ...q,
-      id: q.id, // Ensure ID is passed through
+      id: q.id, 
       type: q.type as 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY', 
-      options: q.options.map(opt => ({ ...opt, id: opt.id })), // Ensure option IDs are passed
+      options: q.options.map(opt => ({ ...opt, id: opt.id })), 
       correctAnswer: q.correctAnswer ?? undefined,
     })),
     createdAt: new Date(prismaExam.createdAt), 
@@ -51,15 +49,15 @@ function mapPrismaExamToAppExam(prismaExam: PrismaExam & { questions: (PrismaQue
 }
 
 
-export async function createExamAction(values: z.infer<typeof examUpsertSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
+export async function createExamAction(values: z.infer<typeof examPayloadSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
   await new Promise(resolve => setTimeout(resolve, 1000)); 
 
-  const parsed = examUpsertSchema.safeParse(values);
+  const parsed = examPayloadSchema.safeParse(values);
   if (!parsed.success) {
     console.error("Validation errors (create):", parsed.error.flatten().fieldErrors);
     return { success: false, message: "Invalid exam data: " + JSON.stringify(parsed.error.flatten().fieldErrors) };
   }
-  if (!parsed.data.passcode) { // Passcode is required for creation
+  if (!parsed.data.passcode) { 
     return { success: false, message: "Passcode is required to create an exam." };
   }
   
@@ -76,8 +74,9 @@ export async function createExamAction(values: z.infer<typeof examUpsertSchema>)
       data: {
         title: parsed.data.title,
         description: parsed.data.description,
-        passcode: parsed.data.passcode, // Passcode is asserted non-null by check above
+        passcode: parsed.data.passcode,
         durationMinutes: parsed.data.durationMinutes,
+        openAt: parsed.data.openAt, // Save the openAt field
         setterId: mockSetterId, 
         questions: {
           create: parsed.data.questions.map(q_client => {
@@ -87,14 +86,14 @@ export async function createExamAction(values: z.infer<typeof examUpsertSchema>)
               correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
             }
             return {
-              id: q_client.id, // Client might suggest an ID, Prisma will use/override
+              id: q_client.id, 
               text: q_client.text,
               type: q_client.type as PrismaQuestionType,
               points: q_client.points,
               correctAnswer: correctAnswerForDb,
               options: q_client.type === 'MULTIPLE_CHOICE' && q_client.options ? {
                 create: q_client.options.map(opt_client => ({
-                  id: opt_client.id, // Client might suggest an ID
+                  id: opt_client.id,
                   text: opt_client.text,
                 }))
               } : undefined,
@@ -118,19 +117,17 @@ export async function createExamAction(values: z.infer<typeof examUpsertSchema>)
 }
 
 
-export async function updateExamAction(examId: string, values: z.infer<typeof examUpsertSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
+export async function updateExamAction(examId: string, values: z.infer<typeof examPayloadSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
   await new Promise(resolve => setTimeout(resolve, 1000));
 
-  const parsed = examUpsertSchema.safeParse(values);
+  const parsed = examPayloadSchema.safeParse(values);
   if (!parsed.success) {
     console.error("Validation errors (update):", parsed.error.flatten().fieldErrors);
     return { success: false, message: "Invalid exam data for update: " + JSON.stringify(parsed.error.flatten().fieldErrors) };
   }
 
   try {
-    // Transaction to ensure atomicity
     const updatedExamFromDb = await prisma.$transaction(async (tx) => {
-      // 1. Delete existing questions and their options for this exam
       const existingQuestions = await tx.question.findMany({
         where: { examId: examId },
         select: { id: true }
@@ -146,11 +143,11 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         });
       }
 
-      // 2. Update exam details (passcode updated only if provided)
-      const examDataToUpdate: Partial<PrismaExam> = {
+      const examDataToUpdate: any = { // Using any temporarily for partial update
         title: parsed.data.title,
         description: parsed.data.description,
         durationMinutes: parsed.data.durationMinutes,
+        openAt: parsed.data.openAt, // Include openAt in update
       };
       if (parsed.data.passcode && parsed.data.passcode.trim() !== "") {
         examDataToUpdate.passcode = parsed.data.passcode;
@@ -160,23 +157,20 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         where: { id: examId },
         data: {
           ...examDataToUpdate,
-          questions: { // 3. Create new questions and options from the form data
+          questions: { 
             create: parsed.data.questions.map(q_client => {
               let correctAnswerForDb: string | undefined = q_client.correctAnswer;
               if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.correctAnswer) {
                 const correctOptionObject = q_client.options.find(opt => opt.text === q_client.correctAnswer);
-                // Prefer existing ID if available, otherwise store text
                 correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
               }
               return {
-                // Do NOT provide q_client.id here for create, let Prisma generate new IDs
                 text: q_client.text,
                 type: q_client.type as PrismaQuestionType,
                 points: q_client.points,
                 correctAnswer: correctAnswerForDb,
                 options: q_client.type === 'MULTIPLE_CHOICE' && q_client.options ? {
                   create: q_client.options.map(opt_client => ({
-                    // Do NOT provide opt_client.id here, let Prisma generate new IDs
                     text: opt_client.text,
                   }))
                 } : undefined,
@@ -218,7 +212,8 @@ export async function listExamsAction(): Promise<{ success: boolean; exams?: Exa
       ...exam,
       description: exam.description ?? "",
       durationMinutes: exam.durationMinutes ?? undefined,
-      questions: exam.questions.map(q => ({ id: q.id, text: '', type: 'SHORT_ANSWER', points: 0 })) as Question[],
+      openAt: exam.openAt ?? undefined,
+      questions: exam.questions.map(q => ({ id: q.id, text: '', type: 'SHORT_ANSWER', points: 0 })) as Question[], // Simplified for list view
       createdAt: new Date(exam.createdAt),
     }));
     return { success: true, exams: appExams };
@@ -254,21 +249,22 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
   }
 }
 
-export async function verifyPasscodeAction(examId: string, passcode: string): Promise<{ success: boolean; message?: string }> {
+export async function verifyPasscodeAction(examId: string, passcode: string): Promise<{ success: boolean; message?: string; examOpenAt?: Date | null }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const exam = await prisma.exam.findUnique({
       where: { id: examId },
-      select: { passcode: true },
+      select: { passcode: true, openAt: true },
     });
 
     if (!exam) {
       return { success: false, message: "Exam not found." };
     }
-    if (exam.passcode === passcode) {
-      return { success: true };
+    if (exam.passcode !== passcode) {
+      return { success: false, message: "Incorrect passcode." };
     }
-    return { success: false, message: "Incorrect passcode." };
+    // Passcode is correct, return success and openAt time for client-side check
+    return { success: true, examOpenAt: exam.openAt };
   } catch (error) {
     console.error("Error verifying passcode:", error);
     return { success: false, message: "Error during passcode verification." };
@@ -299,6 +295,16 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
   });
   
   try {
+    // Before submission, quickly check if exam is open (if scheduled)
+    const examDetails = await prisma.exam.findUnique({
+        where: { id: parsed.data.examId },
+        select: { openAt: true }
+    });
+    if (examDetails?.openAt && new Date() < new Date(examDetails.openAt)) {
+        return { success: false, message: "This exam is not yet open for submission." };
+    }
+
+
     const submission = await prisma.userSubmission.create({
       data: {
         examId: parsed.data.examId,

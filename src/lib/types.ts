@@ -1,3 +1,4 @@
+
 export type QuestionType = 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY';
 
 export interface QuestionOption {
@@ -20,9 +21,10 @@ export interface Exam {
   description: string; // Prisma model has String? - ensure it's always string here or handle undefined
   passcode: string;
   questions: Question[];
-  setterId: string; 
+  setterId: string;
   createdAt: Date;
   durationMinutes?: number;
+  openAt?: Date; // New field for scheduled opening time
 }
 
 export interface UserAnswer {

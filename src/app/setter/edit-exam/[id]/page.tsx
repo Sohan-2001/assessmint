@@ -4,28 +4,34 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getExamByIdAction, updateExamAction } from "@/lib/actions/exam.actions";
-import type { Exam, Question as AppQuestion, QuestionOption as AppQuestionOption } from "@/lib/types"; // Using App types
-import { ExamCreationForm } from "@/components/setter/ExamCreationForm";
+import type { Exam, Question as AppQuestion, QuestionOption as AppQuestionOption } from "@/lib/types"; 
+import { ExamCreationForm, type examFormSchema } from "@/components/setter/ExamCreationForm"; 
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import type { z } from "zod";
-import type { examFormSchema } from "@/components/setter/ExamCreationForm"; // Import schema type
+import { format } from "date-fns";
 
 type ExamFormValues = z.infer<typeof examFormSchema>;
 
+function mapAppExamToFormValues(exam: Exam): ExamFormValues & { openAt?: Date | null } {
+  let formOpenDate: Date | null = null;
+  let formOpenTime: string | null = null;
 
-// Helper to map App Exam type to ExamFormValues
-function mapAppExamToFormValues(exam: Exam): ExamFormValues {
+  if (exam.openAt) {
+    const openAtDate = new Date(exam.openAt);
+    formOpenDate = openAtDate;
+    formOpenTime = format(openAtDate, "HH:mm");
+  }
+
   return {
     title: exam.title,
     description: exam.description || "",
-    passcode: exam.passcode, // Passcode will be re-entered or updated
-    durationMinutes: exam.durationMinutes ?? null, // Handle undefined by mapping to null for the form
+    passcode: exam.passcode, 
+    durationMinutes: exam.durationMinutes ?? null,
     questions: exam.questions.map(q => {
       let correctAnswerForForm: string | undefined = q.correctAnswer;
       if (q.type === 'MULTIPLE_CHOICE' && q.options && q.correctAnswer) {
-        // If correctAnswer is an ID, find the text. Otherwise, assume it's already text.
         const correctOpt = q.options.find(opt => opt.id === q.correctAnswer);
         correctAnswerForForm = correctOpt ? correctOpt.text : q.correctAnswer;
       }
@@ -38,6 +44,10 @@ function mapAppExamToFormValues(exam: Exam): ExamFormValues {
         correctAnswer: correctAnswerForForm,
       };
     }),
+    openDate: formOpenDate,
+    openTime: formOpenTime,
+    // openAt is not directly part of ExamFormValues but used for mapping back from Exam type
+    openAt: exam.openAt ?? null 
   };
 }
 
@@ -47,7 +57,8 @@ export default function EditExamPage() {
   const router = useRouter();
   const examId = typeof params.id === 'string' ? params.id : undefined;
   
-  const [initialExamData, setInitialExamData] = useState<ExamFormValues | null>(null);
+  // Use the extended type for initialExamData
+  const [initialExamData, setInitialExamData] = useState<(ExamFormValues & { openAt?: Date | null }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -68,22 +79,32 @@ export default function EditExamPage() {
       } else {
         setError(result.message || "Failed to load exam details for editing.");
         toast({ title: "Error", description: result.message || "Failed to load exam details.", variant: "destructive" });
-        router.push("/setter/manage-exams"); // Redirect if exam not found or error
+        router.push("/setter/manage-exams"); 
       }
       setIsLoading(false);
     }
     fetchExamDetails();
   }, [examId, toast, router]);
 
-  const handleUpdateExam = async (values: ExamFormValues) => {
+  // onSubmitOverride now receives combinedOpenAt
+  const handleUpdateExam = async (formValues: ExamFormValues, combinedOpenAt: Date | null) => {
     if (!examId) {
       toast({ title: "Error", description: "Exam ID is missing for update.", variant: "destructive" });
       return;
     }
     
-    // The ExamCreationForm now handles its own loading state for submission
-    // but we could have an outer loading state for the page if needed after submission
-    const result = await updateExamAction(examId, values);
+    // Prepare payload for updateExamAction, which expects the combined openAt
+    const updatePayload = {
+        ...formValues,
+        openAt: combinedOpenAt, // Add the combined openAt
+    };
+    // Remove openDate and openTime as they are not part of the server action schema
+    // @ts-ignore
+    delete updatePayload.openDate; 
+    // @ts-ignore
+    delete updatePayload.openTime;
+
+    const result = await updateExamAction(examId, updatePayload);
     
     if (result.success) {
       toast({ title: "Success", description: "Exam updated successfully." });
@@ -119,7 +140,7 @@ export default function EditExamPage() {
         <ExamCreationForm 
             initialData={initialExamData} 
             examIdToUpdate={examId}
-            onSubmitOverride={handleUpdateExam}
+            onSubmitOverride={handleUpdateExam} // Pass the modified handler
         />
     </div>
   );

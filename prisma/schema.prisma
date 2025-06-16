@@ -1,13 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
 
 generator client {
   provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -15,11 +14,10 @@ model User {
   email     String   @unique
   password  String
   role      Role
+  exams     Exam[]   @relation("SetterExams")
+  submissions UserSubmission[] @relation("TakerSubmissions")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  examsCreated    Exam[]             @relation("ExamsSetByUser")
-  submissionsMade UserSubmission[] @relation("SubmissionsByTaker")
 }
 
 enum Role {
@@ -28,35 +26,32 @@ enum Role {
 }
 
 model Exam {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?
-  passcode        String
+  id        String   @id @default(cuid())
+  title     String
+  description String?
+  passcode  String
+  setter    User     @relation("SetterExams", fields: [setterId], references: [id])
+  setterId  String
+  questions Question[]
+  submissions UserSubmission[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   durationMinutes Int?
-  setterId        String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  setter          User             @relation("ExamsSetByUser", fields: [setterId], references: [id])
-  questions       Question[]
-  userSubmissions UserSubmission[]
+  openAt    DateTime? // New field for scheduled opening time
 }
 
 model Question {
-  id            String   @id @default(cuid())
-  text          String
-  type          QuestionType
-  points        Int
-  // For MULTIPLE_CHOICE, correctAnswer will store the ID of the correct QuestionOption.
-  // For SHORT_ANSWER or ESSAY, it can store the model answer text if applicable.
+  id        String   @id @default(cuid())
+  text      String
+  type      QuestionType
+  exam      Exam     @relation(fields: [examId], references: [id])
+  examId    String
+  options   QuestionOption[]
   correctAnswer String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  examId        String
-  exam          Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
-  options       QuestionOption[]
-  userAnswers   UserAnswer[]
+  points    Int
+  answers   UserAnswer[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum QuestionType {
@@ -66,38 +61,34 @@ enum QuestionType {
 }
 
 model QuestionOption {
-  id         String   @id @default(cuid())
-  text       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  text      String
+  question  Question @relation(fields: [questionId], references: [id])
   questionId String
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model UserSubmission {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
+  exam        Exam      @relation(fields: [examId], references: [id])
   examId      String
+  taker       User      @relation("TakerSubmissions", fields: [takerId], references: [id])
   takerId     String
-  submittedAt DateTime @default(now()) // This marks the time of submission
-  score       Int?
-  createdAt   DateTime @default(now()) // Standard record creation timestamp
-  updatedAt   DateTime @updatedAt
-
-  exam        Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
-  taker       User         @relation("SubmissionsByTaker", fields: [takerId], references: [id])
   answers     UserAnswer[]
+  submittedAt DateTime  @default(now())
+  score       Float? // Optional: if you implement auto-grading or manual grading
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model UserAnswer {
-  id             String   @id @default(cuid())
-  submissionId   String
-  questionId     String
-  answer         Json     // Stores selected option ID(s) for MCQ, text for SA/Essay
-  isCorrect      Boolean? // Optional: for auto-grading
-  pointsAwarded  Int?     // Optional: for auto-grading
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  submission UserSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  question   Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  submission   UserSubmission @relation(fields: [submissionId], references: [id])
+  submissionId String
+  question     Question    @relation(fields: [questionId], references: [id])
+  questionId   String
+  answer       Json // Store answer as string for text/essay, option ID for MCQ
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

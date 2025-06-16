@@ -4,8 +4,8 @@
 import type { Exam } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, HelpCircle, ListChecks, Edit3, Trash2, Loader2 } from "lucide-react";
-import { formatDistanceToNow } from 'date-fns';
+import { Clock, HelpCircle, ListChecks, Edit3, Trash2, Loader2, CalendarClock } from "lucide-react"; // Added CalendarClock
+import { format, formatDistanceToNow, isFuture } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation";
 
 type ManageExamCardProps = {
   exam: Exam;
@@ -27,17 +27,20 @@ type ManageExamCardProps = {
 
 export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
-    await onDelete(exam.id); // Toast for success/failure is handled by the parent page
+    await onDelete(exam.id);
     setIsDeleting(false);
   };
   
   const handleEdit = () => {
     router.push(`/setter/edit-exam/${exam.id}`);
   };
+
+  const examNotYetOpen = exam.openAt && isFuture(new Date(exam.openAt));
+
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-200">
@@ -59,6 +62,15 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
           <div className="flex items-center text-muted-foreground">
             <Clock className="mr-1.5 h-3.5 w-3.5 shrink-0" />
             <span>{exam.durationMinutes} minutes</span>
+          </div>
+        )}
+        {exam.openAt && (
+          <div className={`flex items-center ${examNotYetOpen ? 'text-blue-600' : 'text-muted-foreground'}`}>
+            <CalendarClock className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+                Scheduled: {format(new Date(exam.openAt), "MMM d, HH:mm")}
+                {examNotYetOpen && " (Upcoming)"}
+            </span>
           </div>
         )}
          <p className="text-xs text-muted-foreground pt-1">

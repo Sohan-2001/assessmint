@@ -8,9 +8,10 @@ import type { Exam } from "@/lib/types";
 import { ExamCard } from "@/components/taker/ExamCard";
 import { PasscodeDialog } from "@/components/taker/PasscodeDialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle, Search, ListChecks } from "lucide-react"; // Added ListChecks
+import { Loader2, AlertTriangle, Search, ListChecks } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
 
 export default function AvailableExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -51,8 +52,16 @@ export default function AvailableExamsPage() {
   }, [searchTerm, exams]);
 
 
-  const handleAccessExam = (exam: Exam) => {
-    setSelectedExam(exam);
+  const handleAccessExam = (examToAccess: Exam) => { // Renamed param for clarity
+    if (examToAccess.openAt && new Date() < new Date(examToAccess.openAt)) {
+      toast({
+        title: "Exam Not Yet Open",
+        description: `This exam is scheduled to open on ${format(new Date(examToAccess.openAt), "MMM d, yyyy 'at' HH:mm")}.`,
+        variant: "default", 
+      });
+      return;
+    }
+    setSelectedExam(examToAccess);
     setIsPasscodeDialogOpen(true);
   };
 
@@ -60,7 +69,18 @@ export default function AvailableExamsPage() {
     if (!selectedExam) return false;
 
     const result = await verifyPasscodeAction(selectedExam.id, passcode);
+    // The verifyPasscodeAction now returns examOpenAt, but we already checked it in handleAccessExam
+    // For future, if logic changes, this result.examOpenAt could be used.
     if (result.success) {
+      // Additional check here, though primarily handled by handleAccessExam
+      if (result.examOpenAt && new Date() < new Date(result.examOpenAt)) {
+        toast({
+          title: "Exam Not Yet Open",
+          description: `This exam will open on ${format(new Date(result.examOpenAt), "MMM d, yyyy 'at' HH:mm")}.`,
+          variant: "default",
+        });
+        return false;
+      }
       toast({ title: "Success", description: "Passcode verified. Accessing exam..." });
       router.push(`/taker/exam/${selectedExam.id}`);
       return true;
@@ -99,7 +119,7 @@ export default function AvailableExamsPage() {
           <Input 
             type="search"
             placeholder="Search exams..."
-            className="pl-10" // Input component already handles responsive font size
+            className="pl-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

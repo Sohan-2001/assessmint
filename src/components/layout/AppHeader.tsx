@@ -16,13 +16,15 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
-  SheetClose, // Added for programmatically closing or if used directly
+  SheetClose, 
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter } from 'next/navigation';
 import { useAiPanel } from '@/contexts/AiPanelContext';
-import { useState } from 'react'; // Added for mobile menu state
+import { useState } from 'react'; 
 
 export function AppHeader() {
   const { isAuthenticated, userRole, logout, isLoading } = useAuth();
@@ -32,7 +34,7 @@ export function AppHeader() {
 
   const handleLogout = () => {
     logout();
-    setIsMobileMenuOpen(false); // Close mobile menu on logout
+    setIsMobileMenuOpen(false); 
   };
 
   const getInitials = (role: string | null) => {
@@ -151,12 +153,14 @@ export function AppHeader() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-full max-w-xs p-0 bg-card flex flex-col">
-              <div className="p-6 border-b">
-                <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
-                  <BookOpenCheck className="h-7 w-7 text-primary" />
-                  <span className="text-xl font-headline font-bold text-primary">AssessMint</span>
-                </Link>
-              </div>
+              <SheetHeader className="p-6 border-b">
+                <SheetTitle asChild>
+                  <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+                    <BookOpenCheck className="h-7 w-7 text-primary" />
+                    <span className="text-xl font-headline font-bold text-primary">AssessMint</span>
+                  </Link>
+                </SheetTitle>
+              </SheetHeader>
 
               <nav className="flex-grow p-6 space-y-3">
                 {isLoading ? (
@@ -216,7 +220,6 @@ export function AppHeader() {
                         <p className="text-sm font-medium leading-none">
                           {userRole === 'setter' ? 'Exam Setter' : 'Exam Taker'}
                         </p>
-                        {/* <p className="text-xs leading-none text-muted-foreground">user@example.com</p> */}
                       </div>
                     </div>
                   <Button variant="ghost" className={commonMobileLinkStyles} onClick={handleLogout}>

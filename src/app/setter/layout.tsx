@@ -9,6 +9,7 @@ import { SyllabusToQuestionsForm } from "@/components/setter/SyllabusToQuestions
 import { useAiPanel } from "@/contexts/AiPanelContext";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export default function SetterLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, userRole, isLoading: isAuthLoading } = useAuth();
@@ -30,32 +31,6 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Shared content for the panel's header
-  const PanelHeaderContent = () => (
-    <div className="flex justify-between items-center p-2 border-b shrink-0"> {/* p-3 -> p-2 */}
-      <h2 className="text-base font-headline text-primary flex items-center"> {/* text-lg -> text-base */}
-        <Sparkles className="mr-1.5 h-3.5 w-3.5" /> {/* mr-2 h-4 w-4 -> mr-1.5 h-3.5 w-3.5 */}
-        AI Question Generator
-      </h2>
-      <div className="flex items-center gap-x-1">
-        {isMobile && isAiPanelOpen && ( // Only show this button on mobile when panel is open
-          <Button
-            type="submit"
-            form="syllabus-form" // ID of the form in SyllabusToQuestionsForm
-            size="sm" 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 py-1" 
-          >
-            <Sparkles className="mr-1 h-3.5 w-3.5" /> 
-            Generate
-          </Button>
-        )}
-        <Button variant="ghost" size="icon" onClick={() => setIsAiPanelOpen(false)} aria-label="Close AI Panel" className="h-7 w-7">
-          <X className="h-3.5 w-3.5" /> {/* h-4 w-4 -> h-3.5 w-3.5 */}
-        </Button>
-      </div>
-    </div>
-  );
-
   // Shared content for the panel's body (form area)
   const PanelBodyContent = () => (
     <div className="p-2 space-y-2 flex-grow flex flex-col overflow-y-auto"> {/* p-3, space-y-3 -> p-2, space-y-2 */}
@@ -69,24 +44,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className={`flex h-screen ${isMobile ? 'flex-col' : 'flex-row'}`}>
-      {/* AI Panel - Mobile (Top, Resizable Vertically) */}
-      {isAiPanelOpen && isMobile && (
-        <aside
-          className="
-            w-full h-[40vh] 
-            min-h-[200px] max-h-[70vh] 
-            bg-card border-b border-border 
-            flex flex-col 
-            overflow-auto resize-y 
-            transition-opacity duration-300 ease-in-out
-          "
-        >
-          <PanelHeaderContent />
-          <PanelBodyContent />
-        </aside>
-      )}
-
+    <div className={`flex h-screen ${isMobile ? 'flex-col' : 'md:flex-row'}`}>
       {/* Main Content Area */}
       <main className="overflow-y-auto flex-1 w-full">
         <div className={(isAiPanelOpen && isMobile) ? "p-2" : "p-4 sm:p-6 md:p-8"}>
@@ -94,20 +52,71 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
         </div>
       </main>
 
+      {/* AI Panel - Mobile (Top, Resizable Vertically) */}
+      {isAiPanelOpen && isMobile && (
+         <Sheet open={isAiPanelOpen} onOpenChange={setIsAiPanelOpen}>
+            <SheetContent 
+              side="top" 
+              className="
+                h-[40vh] 
+                min-h-[200px] max-h-[70vh] 
+                bg-card border-t border-border 
+                flex flex-col 
+                overflow-auto resize-y 
+                p-0 
+              "
+              onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click for mobile top sheet
+              hideCloseButton={true} // Hide default close button from SheetContent
+            >
+              <SheetHeader className="flex flex-row justify-between items-center p-2 border-b shrink-0 sticky top-0 bg-card z-10">
+                <SheetTitle className="text-base font-headline text-primary flex items-center">
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                  AI Question Generator
+                </SheetTitle>
+                <div className="flex items-center gap-x-1">
+                  <Button
+                    type="submit"
+                    form="syllabus-form" 
+                    size="sm" 
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-2 py-1" 
+                  >
+                    <Sparkles className="mr-1 h-3.5 w-3.5" /> 
+                    Generate
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setIsAiPanelOpen(false)} aria-label="Close AI Panel" className="h-7 w-7">
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </SheetHeader>
+              <PanelBodyContent />
+            </SheetContent>
+        </Sheet>
+      )}
+
       {/* AI Panel - Desktop (Right, Resizable Horizontally) */}
       {isAiPanelOpen && !isMobile && (
         <aside
           className="
             md:w-[30rem] lg:w-[35rem] xl:w-[40rem] 
-            h-full 
-            bg-card border-l border-border 
+            md:h-full 
+            bg-card md:border-l border-border 
             flex flex-col 
             overflow-auto md:resize-x 
             md:min-w-[18rem] md:max-w-2xl 
             transition-opacity duration-300 ease-in-out
           "
         >
-          <PanelHeaderContent />
+          <div className="flex justify-between items-center p-2 border-b shrink-0 sticky top-0 bg-card z-10">
+            <h2 className="text-base font-headline text-primary flex items-center">
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              AI Question Generator
+            </h2>
+            <div className="flex items-center gap-x-1">
+              <Button variant="ghost" size="icon" onClick={() => setIsAiPanelOpen(false)} aria-label="Close AI Panel" className="h-7 w-7">
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
           <PanelBodyContent />
         </aside>
       )}

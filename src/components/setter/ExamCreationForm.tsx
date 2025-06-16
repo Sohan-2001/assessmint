@@ -38,7 +38,7 @@ const questionSchema = z.object({
 export const examFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long"),
   description: z.string().optional(),
-  passcode: z.string().min(4, "Passcode must be at least 4 characters long"),
+  passcode: z.string().min(4, "Passcode must be at least 4 characters long").optional(),
   durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional().nullable(),
   questions: z.array(questionSchema).min(1, "An exam must have at least one question"),
   openDate: z.date().optional().nullable(),
@@ -151,7 +151,10 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         description: data?.description || "",
         passcode: data?.passcode || "",
         durationMinutes: data?.durationMinutes ?? null,
-        questions: data?.questions?.length ? data.questions : [defaultQuestionValues],
+        questions: data?.questions?.length ? data.questions.map(q => ({
+          ...q,
+          correctAnswer: q.correctAnswer ?? undefined // Ensure correctAnswer is undefined if null/empty initially
+        })) : [defaultQuestionValues],
         openDate: formOpenDate,
         openTime: formOpenTime,
     };
@@ -231,10 +234,17 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         await onSubmitOverride(values, combinedOpenAt); 
     } else {
         // Original create logic - requires examData structure for createExamAction
+        // Ensure passcode is present for creation
+        if (!values.passcode || values.passcode.trim() === "") {
+            form.setError("passcode", { type: "manual", message: "Passcode is required to create an exam." });
+            toast({ title: "Error", description: "Passcode is required.", variant: "destructive" });
+            setIsSubmitting(false);
+            return;
+        }
         const examDataForCreation = {
             title: values.title,
             description: values.description,
-            passcode: values.passcode,
+            passcode: values.passcode, // Already checked above
             durationMinutes: values.durationMinutes,
             questions: values.questions,
             openAt: combinedOpenAt, // Add the combined openAt here
@@ -301,8 +311,8 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
               <div className="grid md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="passcode" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Access Passcode {isEditMode && values.passcode && "(Leave blank to keep current)"}</FormLabel>
-                    <FormControl><Input type="password" placeholder={isEditMode ? "Enter new or leave blank" : "e.g., exam2024"} {...field} /></FormControl>
+                    <FormLabel>Access Passcode {isEditMode && initialData?.passcode && "(Leave blank to keep current)"}</FormLabel>
+                    <FormControl><Input type="password" placeholder={isEditMode ? "Enter new or leave blank" : "e.g., exam2024"} {...field} value={field.value ?? ""} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

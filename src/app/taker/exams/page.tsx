@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react"; // Added useCallback
 import { useRouter } from "next/navigation";
 import { listExamsAction, verifyPasscodeAction } from "@/lib/actions/exam.actions";
 import type { Exam } from "@/lib/types";
@@ -12,6 +12,7 @@ import { Loader2, AlertTriangle, Search, ListChecks } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
 
 export default function AvailableExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -24,23 +25,32 @@ export default function AvailableExamsPage() {
 
   const router = useRouter();
   const { toast } = useToast();
+  const { userId, isLoading: isAuthLoading } = useAuth(); // Get userId and auth loading state
+
+  const fetchExams = useCallback(async () => {
+    if (!userId && !isAuthLoading) { // Only fetch if userId is available or auth is no longer loading
+        setIsLoading(false); // Potentially set error or handle no user state
+        return;
+    }
+    if (isAuthLoading) return; // Wait for auth to load
+
+    setIsLoading(true);
+    setError(null);
+    // Pass takerId to listExamsAction
+    const result = await listExamsAction(userId || undefined); // Pass userId or undefined
+    if (result.success && result.exams) {
+      setExams(result.exams);
+      setFilteredExams(result.exams);
+    } else {
+      setError(result.message || "Failed to load exams.");
+      toast({ title: "Error", description: result.message || "Failed to load exams.", variant: "destructive" });
+    }
+    setIsLoading(false);
+  }, [toast, userId, isAuthLoading]); // Add userId and isAuthLoading to dependencies
 
   useEffect(() => {
-    async function fetchExams() {
-      setIsLoading(true);
-      setError(null);
-      const result = await listExamsAction();
-      if (result.success && result.exams) {
-        setExams(result.exams);
-        setFilteredExams(result.exams);
-      } else {
-        setError(result.message || "Failed to load exams.");
-        toast({ title: "Error", description: result.message || "Failed to load exams.", variant: "destructive" });
-      }
-      setIsLoading(false);
-    }
     fetchExams();
-  }, [toast]);
+  }, [fetchExams]);
 
   useEffect(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
@@ -52,7 +62,7 @@ export default function AvailableExamsPage() {
   }, [searchTerm, exams]);
 
 
-  const handleAccessExam = (examToAccess: Exam) => { // Renamed param for clarity
+  const handleAccessExam = (examToAccess: Exam) => {
     if (examToAccess.openAt && new Date() < new Date(examToAccess.openAt)) {
       toast({
         title: "Exam Not Yet Open",
@@ -69,10 +79,7 @@ export default function AvailableExamsPage() {
     if (!selectedExam) return false;
 
     const result = await verifyPasscodeAction(selectedExam.id, passcode);
-    // The verifyPasscodeAction now returns examOpenAt, but we already checked it in handleAccessExam
-    // For future, if logic changes, this result.examOpenAt could be used.
     if (result.success) {
-      // Additional check here, though primarily handled by handleAccessExam
       if (result.examOpenAt && new Date() < new Date(result.examOpenAt)) {
         toast({
           title: "Exam Not Yet Open",
@@ -90,7 +97,7 @@ export default function AvailableExamsPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) { // Consider auth loading state as well
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 md:h-12 md:w-12 animate-spin text-primary" />
@@ -105,7 +112,7 @@ export default function AvailableExamsPage() {
         <AlertTriangle className="h-10 w-10 md:h-12 md:w-12 text-destructive mb-4" />
         <h2 className="text-xl md:text-2xl font-semibold text-destructive mb-2">Oops! Something went wrong.</h2>
         <p className="text-muted-foreground mb-4 text-sm md:text-base">{error}</p>
-        <Button onClick={() => window.location.reload()} className="text-sm md:text-base">Try Again</Button>
+        <Button onClick={fetchExams} className="text-sm md:text-base">Try Again</Button> 
       </div>
     );
   }
@@ -130,7 +137,7 @@ export default function AvailableExamsPage() {
         <div className="text-center py-10">
           <ListChecks className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground mx-auto mb-4" />
           <p className="text-base md:text-xl text-muted-foreground">
-            {searchTerm ? "No exams match your search." : "No exams available at the moment. Please check back later."}
+            {searchTerm ? "No exams match your search." : "No exams available at the moment or you have completed all assigned exams. Please check back later."}
           </p>
         </div>
       ) : (

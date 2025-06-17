@@ -1,21 +1,22 @@
+
 "use server";
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import bcrypt from 'bcryptjs';
-import type { Role } from "@prisma/client"; // Import Prisma's Role enum
+import type { Role } from "@prisma/client";
 
 const signInSchema = z.object({
   email: z.string().email(),
   password: z.string(),
-  role: z.enum(["setter", "taker"]), // Keep lowercase for consistency with AuthContext
+  role: z.enum(["setter", "taker"]),
 });
 
 const signUpSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6, "Password must be at least 6 characters."),
   confirmPassword: z.string(),
-  role: z.enum(["setter", "taker"]), // Keep lowercase for consistency
+  role: z.enum(["setter", "taker"]),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -23,7 +24,7 @@ const signUpSchema = z.object({
 
 
 export async function signInAction(values: z.infer<typeof signInSchema>) {
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   try {
     const user = await prisma.user.findUnique({
@@ -34,7 +35,6 @@ export async function signInAction(values: z.infer<typeof signInSchema>) {
       return { success: false, message: "Invalid email or password." };
     }
 
-    // Ensure role matches. Prisma's Role enum is uppercase.
     const prismaRole: Role = values.role.toUpperCase() as Role;
     if (user.role !== prismaRole) {
         return { success: false, message: "Access denied for this role." };
@@ -45,8 +45,7 @@ export async function signInAction(values: z.infer<typeof signInSchema>) {
       return { success: false, message: "Invalid email or password." };
     }
 
-    // Important: Do not send user object or password back to client
-    return { success: true, message: "Signed in successfully!", role: values.role };
+    return { success: true, message: "Signed in successfully!", role: values.role, userId: user.id }; // Return userId
 
   } catch (error) {
     console.error("Sign in error:", error);
@@ -55,7 +54,7 @@ export async function signInAction(values: z.infer<typeof signInSchema>) {
 }
 
 export async function signUpAction(values: z.infer<typeof signUpSchema>) {
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   try {
     const existingUser = await prisma.user.findUnique({
@@ -68,7 +67,6 @@ export async function signUpAction(values: z.infer<typeof signUpSchema>) {
 
     const hashedPassword = await bcrypt.hash(values.password, 10);
     
-    // Map role to Prisma's uppercase Role enum
     const prismaRole: Role = values.role.toUpperCase() as Role;
 
     const newUser = await prisma.user.create({
@@ -79,8 +77,7 @@ export async function signUpAction(values: z.infer<typeof signUpSchema>) {
       },
     });
 
-    // Important: Do not send user object or password back to client
-    return { success: true, message: "Account created successfully!", role: values.role };
+    return { success: true, message: "Account created successfully!", role: values.role, userId: newUser.id }; // Return userId
 
   } catch (error) {
     console.error("Sign up error:", error);

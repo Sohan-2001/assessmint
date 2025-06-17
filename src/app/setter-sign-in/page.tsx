@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AuthForm } from "@/components/auth/AuthForm";
@@ -22,8 +23,8 @@ export default function SetterSignInPage() {
     setIsLoading(true);
     const result = await signInAction({ ...values, role: "setter" });
     setIsLoading(false);
-    if (result.success) {
-      login("setter");
+    if (result.success && result.userId) { // Check for userId
+      login("setter", result.userId); // Pass userId to login
       toast({ title: "Success", description: result.message });
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });

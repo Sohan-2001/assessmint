@@ -20,14 +20,13 @@ const questionSchemaClient = z.object({
   points: z.coerce.number().min(0, "Points must be a non-negative number"),
 });
 
-// Zod schema for data coming from the form to the server actions
 const examPayloadSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
   passcode: z.string().min(4, "Passcode must be at least 4 characters").optional(),
   questions: z.array(questionSchemaClient).min(1, "Exam must have at least one question"),
   durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional().nullable(),
-  openAt: z.date().optional().nullable(), // Expecting combined Date object or null
+  openAt: z.date().optional().nullable(),
 });
 
 
@@ -61,12 +60,16 @@ export async function createExamAction(values: z.infer<typeof examPayloadSchema>
     return { success: false, message: "Passcode is required to create an exam." };
   }
   
+  // This mockSetterId needs to be replaced with actual authenticated user ID for setters.
+  // For now, ensure it exists or is created.
   const mockSetterId = "clmocksetterid123"; 
-  await prisma.user.upsert({
-    where: { id: mockSetterId },
-    update: {},
-    create: { id: mockSetterId, email: `setter-${mockSetterId}@example.com`, password: "mockpassword", role: "SETTER" },
-  });
+  const setter = await prisma.user.findUnique({ where: { id: mockSetterId } });
+  if (!setter) {
+      // Create a mock setter if it doesn't exist for dev purposes
+      await prisma.user.create({
+          data: { id: mockSetterId, email: `setter-${mockSetterId}@example.com`, password: "mockpassword", role: "SETTER" }
+      });
+  }
 
 
   try {
@@ -76,7 +79,7 @@ export async function createExamAction(values: z.infer<typeof examPayloadSchema>
         description: parsed.data.description,
         passcode: parsed.data.passcode,
         durationMinutes: parsed.data.durationMinutes,
-        openAt: parsed.data.openAt, // Save the openAt field
+        openAt: parsed.data.openAt,
         setterId: mockSetterId, 
         questions: {
           create: parsed.data.questions.map(q_client => {
@@ -143,11 +146,11 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         });
       }
 
-      const examDataToUpdate: any = { // Using any temporarily for partial update
+      const examDataToUpdate: any = { 
         title: parsed.data.title,
         description: parsed.data.description,
         durationMinutes: parsed.data.durationMinutes,
-        openAt: parsed.data.openAt, // Include openAt in update
+        openAt: parsed.data.openAt,
       };
       if (parsed.data.passcode && parsed.data.passcode.trim() !== "") {
         examDataToUpdate.passcode = parsed.data.passcode;
@@ -196,10 +199,24 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
 }
 
 
-export async function listExamsAction(): Promise<{ success: boolean; exams?: Exam[]; message?: string }> {
+export async function listExamsAction(takerId?: string): Promise<{ success: boolean; exams?: Exam[]; message?: string }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
+    let submittedExamIds: string[] = [];
+    if (takerId) {
+      const submissions = await prisma.userSubmission.findMany({
+        where: { takerId: takerId },
+        select: { examId: true }
+      });
+      submittedExamIds = submissions.map(s => s.examId);
+    }
+
     const examsFromDb = await prisma.exam.findMany({
+      where: {
+        id: {
+          notIn: submittedExamIds // Exclude submitted exams
+        }
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         questions: { 
@@ -213,7 +230,7 @@ export async function listExamsAction(): Promise<{ success: boolean; exams?: Exa
       description: exam.description ?? "",
       durationMinutes: exam.durationMinutes ?? undefined,
       openAt: exam.openAt ?? undefined,
-      questions: exam.questions.map(q => ({ id: q.id, text: '', type: 'SHORT_ANSWER', points: 0 })) as Question[], // Simplified for list view
+      questions: exam.questions.map(q => ({ id: q.id, text: '', type: 'SHORT_ANSWER', points: 0 })) as Question[], 
       createdAt: new Date(exam.createdAt),
     }));
     return { success: true, exams: appExams };
@@ -263,7 +280,6 @@ export async function verifyPasscodeAction(examId: string, passcode: string): Pr
     if (exam.passcode !== passcode) {
       return { success: false, message: "Incorrect passcode." };
     }
-    // Passcode is correct, return success and openAt time for client-side check
     return { success: true, examOpenAt: exam.openAt };
   } catch (error) {
     console.error("Error verifying passcode:", error);
@@ -273,6 +289,7 @@ export async function verifyPasscodeAction(examId: string, passcode: string): Pr
 
 const submitExamSchema = z.object({
   examId: z.string(),
+  takerId: z.string(), // Added takerId
   answers: z.array(z.object({
     questionId: z.string(),
     answer: z.union([z.string(), z.array(z.string())]), 
@@ -286,16 +303,15 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
   if (!parsed.success) {
     return { success: false, message: "Invalid submission data." };
   }
-
-  const mockTakerId = "clmocktakerid123";
-  await prisma.user.upsert({
-    where: { id: mockTakerId },
-    update: {},
-    create: { id: mockTakerId, email: `taker-${mockTakerId}@example.com`, password: "mockpassword", role: "TAKER" },
-  });
+  
+  // Ensure the taker exists (or create if using a mock setup that allows it)
+  // This step is crucial if takerId is not a mock. For now, assume takerId is valid.
+  const taker = await prisma.user.findUnique({ where: { id: parsed.data.takerId } });
+  if (!taker || taker.role !== 'TAKER') {
+      return { success: false, message: "Invalid taker." };
+  }
   
   try {
-    // Before submission, quickly check if exam is open (if scheduled)
     const examDetails = await prisma.exam.findUnique({
         where: { id: parsed.data.examId },
         select: { openAt: true }
@@ -304,11 +320,22 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
         return { success: false, message: "This exam is not yet open for submission." };
     }
 
+    // Check if user has already submitted this exam
+    const existingSubmission = await prisma.userSubmission.findFirst({
+        where: {
+            examId: parsed.data.examId,
+            takerId: parsed.data.takerId
+        }
+    });
+
+    if (existingSubmission) {
+        return { success: false, message: "You have already submitted this exam." };
+    }
 
     const submission = await prisma.userSubmission.create({
       data: {
         examId: parsed.data.examId,
-        takerId: mockTakerId, 
+        takerId: parsed.data.takerId, 
         answers: {
           create: parsed.data.answers.map(ans => ({
             questionId: ans.questionId,

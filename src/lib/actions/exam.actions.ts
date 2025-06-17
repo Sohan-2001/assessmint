@@ -3,8 +3,8 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import type { Exam as PrismaExam, Question as PrismaQuestion, QuestionOption as PrismaQuestionOption, QuestionType as PrismaQuestionType } from "@prisma/client";
-import type { Exam, Question, QuestionOption } from "@/lib/types"; 
+import type { Exam as PrismaExam, Question as PrismaQuestion, QuestionOption as PrismaQuestionOption, QuestionType as PrismaQuestionType, UserAnswer as PrismaUserAnswer } from "@prisma/client";
+import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation } from "@/lib/types"; 
 
 const questionOptionSchemaClient = z.object({
   id: z.string().optional(), 
@@ -217,12 +217,13 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
       orderBy: { createdAt: 'desc' },
       include: {
         questions: { 
-          select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: true } 
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: { orderBy: { createdAt: 'asc' }} } 
         }
       }
     });
 
-    const appExams: Exam[] = examsFromDb.map(exam => mapPrismaExamToAppExam(exam as any)); // Cast as any to satisfy mapPrismaExamToAppExam
+    const appExams: Exam[] = examsFromDb.map(exam => mapPrismaExamToAppExam(exam as any)); 
     return { success: true, exams: appExams };
   } catch (error) {
     console.error("Error listing exams:", error);
@@ -230,7 +231,7 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
   }
 }
 
-// Specifically for setters to list all their exams for management/evaluation
+
 export async function listAllExamsForSetterAction(setterId: string): Promise<{ success: boolean; exams?: Exam[]; message?: string }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
@@ -241,7 +242,8 @@ export async function listAllExamsForSetterAction(setterId: string): Promise<{ s
       orderBy: { createdAt: 'desc' },
       include: {
         questions: { 
-          select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: true }
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: { orderBy: { createdAt: 'asc' }} }
         }
       }
     });
@@ -460,59 +462,99 @@ export async function getExamSubmissionsForEvaluationAction(examId: string): Pro
   }
 }
 
-// Placeholder for fetching details for a single submission - to be fleshed out
-export async function getSubmissionDetailsForEvaluationAction(submissionId: string): Promise<any> {
+
+export async function getSubmissionDetailsForEvaluationAction(submissionId: string): Promise<{ success: boolean; submission?: SubmissionForEvaluation; message?: string }> {
     await new Promise(resolve => setTimeout(resolve, 500));
-    // This will fetch the submission, its answers, the exam details, and questions.
-    // For now, returning a placeholder.
     try {
         const submission = await prisma.userSubmission.findUnique({
             where: { id: submissionId },
             include: {
                 taker: { select: { email: true }},
-                exam: { include: { questions: { include: { options: true }} }},
-                answers: { include: { question: true }}
+                exam: { 
+                    include: { 
+                        questions: { 
+                            orderBy: { createdAt: 'asc' },
+                            include: { options: { orderBy: { createdAt: 'asc' }} }
+                        }
+                    }
+                },
+                answers: { 
+                    orderBy: { question: { createdAt: 'asc' }}
+                 } 
             }
         });
+
         if (!submission) {
             return { success: false, message: "Submission not found." };
         }
-        // Map to a structure suitable for the evaluation UI
-        const mappedSubmission = {
+
+        const mappedQuestions: Question[] = submission.exam.questions.map(q_prisma => {
+            const userAnswerRecord = submission.answers.find(a => a.questionId === q_prisma.id);
+            return {
+                id: q_prisma.id,
+                text: q_prisma.text,
+                type: q_prisma.type as AppQuestionType,
+                points: q_prisma.points,
+                options: q_prisma.options.map(opt => ({ id: opt.id, text: opt.text })),
+                correctAnswer: q_prisma.correctAnswer ?? undefined,
+                userAnswer: userAnswerRecord?.answer as (string | string[] | undefined), // Prisma's JsonValue to string/string[]
+                awardedMarks: userAnswerRecord?.awardedMarks,
+                feedback: userAnswerRecord?.feedback,
+            };
+        });
+
+        const mappedSubmissionData: SubmissionForEvaluation = {
             submissionId: submission.id,
             takerEmail: submission.taker.email,
             examTitle: submission.exam.title,
             examId: submission.exam.id,
-            questions: submission.exam.questions.map(q => {
-                const userAnswer = submission.answers.find(a => a.questionId === q.id);
-                return {
-                    ...mapPrismaExamToAppExam({questions: [q]} as any).questions[0], // Bit of a hack to reuse mapping
-                    userAnswer: userAnswer?.answer,
-                    awardedMarks: userAnswer?.awardedMarks,
-                    feedback: userAnswer?.feedback,
-                };
-            }),
+            questions: mappedQuestions,
             isEvaluated: submission.isEvaluated,
             evaluatedScore: submission.evaluatedScore,
         };
-        return { success: true, submission: mappedSubmission };
+        return { success: true, submission: mappedSubmissionData };
 
     } catch (error) {
         console.error("Error fetching submission details:", error);
-        return { success: false, message: "Failed to load submission details." };
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { success: false, message: `Failed to load submission details. ${errorMessage}` };
     }
 }
 
-// Placeholder for saving evaluation - to be fleshed out
+
 export async function saveEvaluationAction(submissionId: string, evaluatedAnswers: Array<{ questionId: string, awardedMarks: number, feedback?: string }>, totalScore: number): Promise<{ success: boolean; message: string }> {
     await new Promise(resolve => setTimeout(resolve, 1000));
     try {
+        // Validate that all questions in the submission have a corresponding evaluatedAnswer
+        const submission = await prisma.userSubmission.findUnique({
+            where: {id: submissionId},
+            include: {answers: {select: {questionId: true}}}
+        });
+        if (!submission) throw new Error("Submission not found for validation.");
+
+        const answerQuestionIds = new Set(submission.answers.map(a => a.questionId));
+        const evaluatedQuestionIds = new Set(evaluatedAnswers.map(e => e.questionId));
+
+        if (answerQuestionIds.size !== evaluatedQuestionIds.size || !Array.from(answerQuestionIds).every(id => evaluatedQuestionIds.has(id))) {
+            throw new Error("Mismatch between submitted questions and evaluated answers.");
+        }
+
+
         await prisma.$transaction(async (tx) => {
             for (const ans of evaluatedAnswers) {
-                await tx.userAnswer.updateMany({ // updateMany in case structure changes, usually would be update
+                 const existingAnswer = await tx.userAnswer.findFirst({
                     where: {
                         submissionId: submissionId,
                         questionId: ans.questionId,
+                    }
+                 });
+                 if (!existingAnswer) {
+                    throw new Error(`Answer for question ID ${ans.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
+                 }
+
+                await tx.userAnswer.update({ 
+                    where: {
+                        id: existingAnswer.id
                     },
                     data: {
                         awardedMarks: ans.awardedMarks,
@@ -531,12 +573,13 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
         return { success: true, message: "Evaluation saved successfully." };
     } catch (error) {
         console.error("Error saving evaluation:", error);
-        return { success: false, message: "Failed to save evaluation." };
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { success: false, message: `Failed to save evaluation: ${errorMessage}` };
     }
 }
 
 
-// Renamed from getExamAttendeesAction to avoid confusion with the new getExamSubmissionsForEvaluationAction
+
 export async function getExamTakerEmailsAction(examId: string): Promise<{ success: boolean; attendees?: Array<{email: string, submittedAt: Date}>; message?: string }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
@@ -568,3 +611,6 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
+
+
+    

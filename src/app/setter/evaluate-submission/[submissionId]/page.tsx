@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSubmissionDetailsForEvaluationAction, saveEvaluationAction } from "@/lib/actions/exam.actions";
-import type { Question as AppQuestion, UserAnswer as AppUserAnswer } from "@/lib/types";
+import type { Question as AppQuestion, UserAnswer as AppUserAnswer, SubmissionForEvaluation } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle, ArrowLeft, Save, CheckCircle, XCircle, ListChecks, User } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowLeft, Save, CheckCircle, XCircle, ListChecks, User, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,21 +14,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
-// Extended Question type for the form, including user's answer and evaluation fields
-interface EvaluableQuestion extends AppQuestion {
-  userAnswer?: string | string[];
-  awardedMarksInput: string; // Using string for input field, will parse to number
+// This interface is used to manage form state for each question within the component
+interface EvaluableQuestionForForm extends AppQuestion {
+  awardedMarksInput: string; 
   feedbackInput: string;
 }
 
-interface SubmissionDetails {
-  submissionId: string;
-  takerEmail: string;
-  examTitle: string;
-  examId: string;
-  questions: EvaluableQuestion[];
-  isEvaluated: boolean;
-  evaluatedScore?: number | null;
+interface SubmissionDetailsForForm extends SubmissionForEvaluation {
+  questions: EvaluableQuestionForForm[];
 }
 
 export default function EvaluateSubmissionPage() {
@@ -36,7 +29,7 @@ export default function EvaluateSubmissionPage() {
   const router = useRouter();
   const submissionId = typeof params.submissionId === 'string' ? params.submissionId : undefined;
 
-  const [submissionDetails, setSubmissionDetails] = useState<SubmissionDetails | null>(null);
+  const [submissionDetails, setSubmissionDetails] = useState<SubmissionDetailsForForm | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +47,10 @@ export default function EvaluateSubmissionPage() {
       setError(null);
       const result = await getSubmissionDetailsForEvaluationAction(submissionId);
       if (result.success && result.submission) {
-        // Initialize form-specific fields
-        const evaluableQuestions = result.submission.questions.map((q: any) => ({
+        const evaluableQuestions = result.submission.questions.map((q: AppQuestion) => ({
           ...q,
-          userAnswer: q.userAnswer,
-          awardedMarksInput: q.awardedMarks?.toString() || "0", // Default to "0" or existing
+          userAnswer: q.userAnswer ?? (q.type === 'MULTIPLE_CHOICE' ? undefined : ""), // Ensure userAnswer is defined
+          awardedMarksInput: q.awardedMarks?.toString() || "0", 
           feedbackInput: q.feedback || "",
         }));
         setSubmissionDetails({ ...result.submission, questions: evaluableQuestions });
@@ -112,10 +104,16 @@ export default function EvaluateSubmissionPage() {
     }
 
     setIsSaving(true);
+    let allMarksValid = true;
     const evaluatedAnswers = submissionDetails.questions.map(q => {
       const awardedMarks = parseFloat(q.awardedMarksInput);
       if (isNaN(awardedMarks) || awardedMarks < 0 || awardedMarks > q.points) {
-          throw new Error(`Invalid marks for question "${q.text.substring(0,20)}...". Marks must be between 0 and ${q.points}.`);
+          toast({ 
+              title: "Validation Error", 
+              description: `Invalid marks for question "${q.text.substring(0,20)}...". Marks must be between 0 and ${q.points}.`, 
+              variant: "destructive"
+          });
+          allMarksValid = false;
       }
       return {
         questionId: q.id,
@@ -123,6 +121,12 @@ export default function EvaluateSubmissionPage() {
         feedback: q.feedbackInput,
       };
     });
+
+    if (!allMarksValid) {
+        setIsSaving(false);
+        return;
+    }
+
     const totalScore = calculateTotalScore();
 
     try {
@@ -134,7 +138,7 @@ export default function EvaluateSubmissionPage() {
         toast({ title: "Error", description: result.message || "Failed to save evaluation.", variant: "destructive" });
         }
     } catch (e: any) {
-        toast({ title: "Validation Error", description: e.message, variant: "destructive"});
+        toast({ title: "Error", description: e.message || "An unexpected error occurred.", variant: "destructive"});
     } finally {
         setIsSaving(false);
     }
@@ -189,43 +193,62 @@ export default function EvaluateSubmissionPage() {
             <Card key={q.id} className="p-4 bg-muted/30">
               <div className="mb-3">
                 <p className="text-sm text-muted-foreground">Question {index + 1} (Max {q.points} points)</p>
-                <p className="font-semibold text-foreground mt-1">{q.text}</p>
+                <p className="font-semibold text-foreground mt-1 whitespace-pre-wrap">{q.text}</p>
               </div>
 
               {q.type === "MULTIPLE_CHOICE" && q.options && (
                 <div className="mb-3 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Options:</Label>
-                  {q.options.map(opt => (
-                    <div key={opt.id} className={`flex items-center p-2 rounded-md text-sm
-                      ${opt.id === q.correctAnswer ? 'bg-green-100 border border-green-300' : ''}
-                      ${opt.id === q.userAnswer && opt.id !== q.correctAnswer ? 'bg-red-100 border border-red-300' : ''}
-                      ${opt.id === q.userAnswer && opt.id === q.correctAnswer ? 'font-bold' : ''}
-                    `}>
-                      {opt.id === q.userAnswer && (opt.id === q.correctAnswer ? 
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-700"/> : 
-                        <XCircle className="h-4 w-4 mr-2 text-red-700"/>
-                      )}
-                      <span className="mr-2">{String.fromCharCode(65 + q.options!.indexOf(opt))}.</span>
-                      <span>{opt.text}</span>
-                      {opt.id === q.correctAnswer && <span className="ml-auto text-xs text-green-700 font-medium">(Correct)</span>}
-                    </div>
-                  ))}
+                  <Label className="text-xs text-muted-foreground">Options & Student's Choice:</Label>
+                  {q.options.map(opt => {
+                    const isSelectedByStudent = q.userAnswer === opt.id;
+                    const isCorrectOption = q.correctAnswer === opt.id;
+                    let optionStyle = "bg-card border";
+                    if (isSelectedByStudent && isCorrectOption) {
+                        optionStyle = "bg-green-100 border-green-400 font-semibold";
+                    } else if (isSelectedByStudent && !isCorrectOption) {
+                        optionStyle = "bg-red-100 border-red-400";
+                    } else if (isCorrectOption) {
+                         optionStyle = "bg-green-50 border-green-300";
+                    }
+
+                    return (
+                        <div key={opt.id} className={`flex items-center p-2 rounded-md text-sm ${optionStyle}`}>
+                        {isSelectedByStudent && isCorrectOption && <CheckCircle className="h-4 w-4 mr-2 text-green-700 shrink-0"/>}
+                        {isSelectedByStudent && !isCorrectOption && <XCircle className="h-4 w-4 mr-2 text-red-700 shrink-0"/>}
+                        {!isSelectedByStudent && isCorrectOption && <Info className="h-4 w-4 mr-2 text-green-600 shrink-0"/>}
+                        {!isSelectedByStudent && !isCorrectOption && <span className="w-4 h-4 mr-2 shrink-0"></span>}
+                        
+                        <span className="mr-2">{String.fromCharCode(65 + q.options!.indexOf(opt))}.</span>
+                        <span className="flex-grow">{opt.text}</span>
+                        {isCorrectOption && <span className="ml-auto text-xs text-green-700 font-medium">(Correct Answer)</span>}
+                        {isSelectedByStudent && !isCorrectOption && <span className="ml-auto text-xs text-red-700 font-medium">(Student's Choice)</span>}
+                        </div>
+                    );
+                  })}
+                   {!q.userAnswer && q.type === 'MULTIPLE_CHOICE' && (
+                        <p className="italic text-xs text-muted-foreground/80 mt-1">No option selected by student.</p>
+                    )}
                 </div>
               )}
 
               {q.type === "SHORT_ANSWER" && q.correctAnswer && (
                  <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-md">
                     <Label className="text-xs text-green-700 font-medium">Suggested Correct Answer:</Label>
-                    <p className="text-sm text-green-800">{q.correctAnswer}</p>
+                    <p className="text-sm text-green-800 whitespace-pre-wrap">{q.correctAnswer}</p>
                  </div>
               )}
               
-              <div className="mb-3 p-3 bg-card border rounded-md">
-                <Label htmlFor={`userAnswer-${q.id}`} className="text-xs text-muted-foreground">Student's Answer:</Label>
-                <div id={`userAnswer-${q.id}`} className="mt-1 text-sm text-foreground whitespace-pre-wrap">
-                    {Array.isArray(q.userAnswer) ? q.userAnswer.join(', ') : (q.userAnswer || <span className="italic text-muted-foreground/70">No answer provided</span>)}
+              {(q.type === "SHORT_ANSWER" || q.type === "ESSAY") && (
+                <div className="mb-3 p-3 bg-card border rounded-md">
+                    <Label htmlFor={`userAnswer-${q.id}`} className="text-xs text-muted-foreground">Student's Answer:</Label>
+                    <div id={`userAnswer-${q.id}`} className="mt-1 text-sm text-foreground whitespace-pre-wrap">
+                        { (q.userAnswer && typeof q.userAnswer === 'string' && q.userAnswer.trim() !== "") ? q.userAnswer : 
+                          (Array.isArray(q.userAnswer) && q.userAnswer.length > 0 ? q.userAnswer.join(', ') : 
+                            <span className="italic text-muted-foreground/70">No answer provided</span>)
+                        }
+                    </div>
                 </div>
-              </div>
+              )}
               
               <Separator className="my-4"/>
 
@@ -274,3 +297,6 @@ export default function EvaluateSubmissionPage() {
     </div>
   );
 }
+
+
+    

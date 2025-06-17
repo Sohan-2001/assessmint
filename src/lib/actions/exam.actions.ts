@@ -20,6 +20,7 @@ const questionSchemaClient = z.object({
   points: z.coerce.number().min(0, "Points must be a non-negative number"),
 });
 
+// Base schema for exam data, used by both create and update, and form
 const examPayloadSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
@@ -27,6 +28,11 @@ const examPayloadSchema = z.object({
   questions: z.array(questionSchemaClient).min(1, "Exam must have at least one question"),
   durationMinutes: z.coerce.number().positive("Duration must be a positive number").optional().nullable(),
   openAt: z.date().optional().nullable(),
+});
+
+// Specific schema for creating an exam, includes setterId
+const createExamActionPayloadSchema = examPayloadSchema.extend({
+  setterId: z.string().min(1, "Setter ID is required"),
 });
 
 
@@ -48,10 +54,10 @@ function mapPrismaExamToAppExam(prismaExam: PrismaExam & { questions: (PrismaQue
 }
 
 
-export async function createExamAction(values: z.infer<typeof examPayloadSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
+export async function createExamAction(values: z.infer<typeof createExamActionPayloadSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
   await new Promise(resolve => setTimeout(resolve, 1000)); 
 
-  const parsed = examPayloadSchema.safeParse(values);
+  const parsed = createExamActionPayloadSchema.safeParse(values);
   if (!parsed.success) {
     console.error("Validation errors (create):", parsed.error.flatten().fieldErrors);
     return { success: false, message: "Invalid exam data: " + JSON.stringify(parsed.error.flatten().fieldErrors) };
@@ -60,14 +66,11 @@ export async function createExamAction(values: z.infer<typeof examPayloadSchema>
     return { success: false, message: "Passcode is required to create an exam." };
   }
   
-  const mockSetterId = "clmocksetterid123"; 
-  const setter = await prisma.user.findUnique({ where: { id: mockSetterId } });
-  if (!setter) {
-      await prisma.user.create({
-          data: { id: mockSetterId, email: `setter-${mockSetterId}@example.com`, password: "mockpassword", role: "SETTER" }
-      });
+  // Ensure the setter exists (optional, depends on strictness)
+  const setter = await prisma.user.findUnique({ where: { id: parsed.data.setterId } });
+  if (!setter || setter.role !== 'SETTER') {
+      return { success: false, message: "Invalid or unauthorized setter ID." };
   }
-
 
   try {
     const createdExamFromDb = await prisma.exam.create({
@@ -77,7 +80,7 @@ export async function createExamAction(values: z.infer<typeof examPayloadSchema>
         passcode: parsed.data.passcode,
         durationMinutes: parsed.data.durationMinutes,
         openAt: parsed.data.openAt,
-        setterId: mockSetterId, 
+        setterId: parsed.data.setterId, // Use the provided setterId
         questions: {
           create: parsed.data.questions.map(q_client => {
             let correctAnswerForDb: string | undefined = q_client.correctAnswer;
@@ -497,7 +500,7 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                 points: q_prisma.points,
                 options: q_prisma.options.map(opt => ({ id: opt.id, text: opt.text })),
                 correctAnswer: q_prisma.correctAnswer ?? undefined,
-                userAnswer: userAnswerRecord?.answer as (string | string[] | undefined), // Prisma's JsonValue to string/string[]
+                userAnswer: userAnswerRecord?.answer as (string | string[] | undefined), 
                 awardedMarks: userAnswerRecord?.awardedMarks,
                 feedback: userAnswerRecord?.feedback,
             };
@@ -525,40 +528,34 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
 export async function saveEvaluationAction(submissionId: string, evaluatedAnswers: Array<{ questionId: string, awardedMarks: number, feedback?: string }>, totalScore: number): Promise<{ success: boolean; message: string }> {
     await new Promise(resolve => setTimeout(resolve, 1000));
     try {
-        // Validate that all questions in the submission have a corresponding evaluatedAnswer
         const submission = await prisma.userSubmission.findUnique({
             where: {id: submissionId},
-            include: {answers: {select: {questionId: true}}}
+            include: {answers: {select: {questionId: true, id: true}}} 
         });
         if (!submission) throw new Error("Submission not found for validation.");
 
-        const answerQuestionIds = new Set(submission.answers.map(a => a.questionId));
-        const evaluatedQuestionIds = new Set(evaluatedAnswers.map(e => e.questionId));
+        const answerQuestionIdsInDb = new Set(submission.answers.map(a => a.questionId));
+        const evaluatedQuestionIdsProvided = new Set(evaluatedAnswers.map(e => e.questionId));
 
-        if (answerQuestionIds.size !== evaluatedQuestionIds.size || !Array.from(answerQuestionIds).every(id => evaluatedQuestionIds.has(id))) {
-            throw new Error("Mismatch between submitted questions and evaluated answers.");
+        if (answerQuestionIdsInDb.size !== evaluatedQuestionIdsProvided.size || !Array.from(answerQuestionIdsInDb).every(id => evaluatedQuestionIdsProvided.has(id))) {
+            throw new Error("Mismatch between submitted questions and evaluated answers. Ensure all questions are evaluated.");
         }
 
 
         await prisma.$transaction(async (tx) => {
-            for (const ans of evaluatedAnswers) {
-                 const existingAnswer = await tx.userAnswer.findFirst({
-                    where: {
-                        submissionId: submissionId,
-                        questionId: ans.questionId,
-                    }
-                 });
-                 if (!existingAnswer) {
-                    throw new Error(`Answer for question ID ${ans.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
+            for (const evalAns of evaluatedAnswers) {
+                 const userAnswerToUpdate = submission.answers.find(a => a.questionId === evalAns.questionId);
+                 if (!userAnswerToUpdate) { // Should not happen due to check above, but defensive
+                    throw new Error(`Answer for question ID ${evalAns.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
                  }
 
                 await tx.userAnswer.update({ 
                     where: {
-                        id: existingAnswer.id
+                        id: userAnswerToUpdate.id 
                     },
                     data: {
-                        awardedMarks: ans.awardedMarks,
-                        feedback: ans.feedback,
+                        awardedMarks: evalAns.awardedMarks,
+                        feedback: evalAns.feedback,
                     }
                 });
             }
@@ -611,6 +608,3 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
-
-
-    

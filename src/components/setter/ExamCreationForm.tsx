@@ -12,13 +12,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createExamAction } from "@/lib/actions/exam.actions"; // updateExamAction will be passed via prop
+import { createExamAction } from "@/lib/actions/exam.actions"; 
 import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parse } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 
 const questionOptionSchema = z.object({
@@ -35,6 +36,7 @@ const questionSchema = z.object({
   points: z.coerce.number().min(0, "Points must be non-negative").default(0),
 });
 
+// This schema is for the form itself
 export const examFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long"),
   description: z.string().optional(),
@@ -48,21 +50,20 @@ export const examFormSchema = z.object({
     .optional()
     .nullable(),
 }).refine(data => {
-    // If one of openDate or openTime is provided, the other must also be provided.
     if ((data.openDate && !data.openTime) || (!data.openDate && data.openTime)) {
         return false;
     }
     return true;
 }, {
     message: "Both date and time must be provided for scheduling, or neither.",
-    path: ["openTime"], // Show error next to time field
+    path: ["openTime"], 
 });
 
 type ExamFormValues = z.infer<typeof examFormSchema>;
 type QuestionFormValues = z.infer<typeof questionSchema>;
 
 interface ExamCreationFormProps {
-    initialData?: ExamFormValues & { openAt?: Date | null }; // Adjust to include openAt for initial mapping
+    initialData?: ExamFormValues & { openAt?: Date | null }; 
     examIdToUpdate?: string;
     onSubmitOverride?: (values: ExamFormValues, combinedOpenAt: Date | null) => Promise<void>;
 }
@@ -122,6 +123,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { userId, isLoading: isAuthLoading } = useAuth();
   const isEditMode = !!initialData && !!examIdToUpdate;
 
   const defaultQuestionValues = {
@@ -153,7 +155,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         durationMinutes: data?.durationMinutes ?? null,
         questions: data?.questions?.length ? data.questions.map(q => ({
           ...q,
-          correctAnswer: q.correctAnswer ?? undefined // Ensure correctAnswer is undefined if null/empty initially
+          correctAnswer: q.correctAnswer ?? undefined 
         })) : [defaultQuestionValues],
         openDate: formOpenDate,
         openTime: formOpenTime,
@@ -219,7 +221,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         try {
             const [hours, minutes] = values.openTime.split(':').map(Number);
             const dateWithTime = new Date(values.openDate);
-            dateWithTime.setHours(hours, minutes, 0, 0); // Set hours and minutes, seconds and ms to 0
+            dateWithTime.setHours(hours, minutes, 0, 0); 
             combinedOpenAt = dateWithTime;
         } catch (e) {
             toast({ title: "Error", description: "Invalid date/time for scheduling.", variant: "destructive" });
@@ -230,29 +232,33 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
 
 
     if (onSubmitOverride && examIdToUpdate) {
-        // Pass the raw form values AND the combinedOpenAt separately
         await onSubmitOverride(values, combinedOpenAt); 
     } else {
-        // Original create logic - requires examData structure for createExamAction
-        // Ensure passcode is present for creation
+        if (isAuthLoading || !userId) {
+            toast({ title: "Authentication Error", description: "User not authenticated or still loading. Cannot create exam.", variant: "destructive" });
+            setIsSubmitting(false);
+            return;
+        }
         if (!values.passcode || values.passcode.trim() === "") {
             form.setError("passcode", { type: "manual", message: "Passcode is required to create an exam." });
             toast({ title: "Error", description: "Passcode is required.", variant: "destructive" });
             setIsSubmitting(false);
             return;
         }
+
+        // Prepare payload for createExamAction, including setterId
         const examDataForCreation = {
-            title: values.title,
-            description: values.description,
-            passcode: values.passcode, // Already checked above
-            durationMinutes: values.durationMinutes,
-            questions: values.questions,
-            openAt: combinedOpenAt, // Add the combined openAt here
+            ...values, // Spread the form values
+            setterId: userId, // Add the authenticated setter's ID
+            openAt: combinedOpenAt, 
         };
+        // Remove form-specific date/time fields if they exist on values, as openAt is now the source of truth
+        // This is defensive; examDataForCreation already structures it correctly by spreading values first.
+        const { openDate, openTime, ...payloadForAction } = examDataForCreation;
+
 
         try {
-          // @ts-ignore // TODO: Fix type mismatch if createExamAction expects ExamFormValues directly
-          const result = await createExamAction(examDataForCreation);
+          const result = await createExamAction(payloadForAction);
           if (result.success && result.exam) {
             toast({
               title: "Exam Created!",
@@ -375,7 +381,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                                     mode="single"
                                     selected={field.value ?? undefined}
                                     onSelect={(date) => field.onChange(date ?? null)}
-                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } // Disable past dates
+                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
                                     initialFocus
                                 />
                                 </PopoverContent>
@@ -507,7 +513,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
             </div>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
+            <Button type="submit" disabled={isSubmitting || isAuthLoading} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
               {isSubmitting ? (<Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin" />) : (isEditMode ? <Edit className="mr-2 h-4 w-4 md:h-5 md:w-5" /> : <Save className="mr-2 h-4 w-4 md:h-5 md:w-5" />)}
               {isSubmitting ? (isEditMode ? "Updating..." : "Saving...") : (isEditMode ? "Update Exam" : "Save Exam")}
             </Button>
@@ -517,4 +523,3 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
     </Card>
   );
 }
-

@@ -2,13 +2,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { listExamsAction, deleteExamAction } from "@/lib/actions/exam.actions";
+import { listAllExamsForSetterAction, deleteExamAction } from "@/lib/actions/exam.actions"; // Changed to listAllExamsForSetterAction
 import type { Exam } from "@/lib/types";
 import { ManageExamCard } from "@/components/setter/ManageExamCard";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, Inbox, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
 
 export default function ManageExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -17,24 +18,39 @@ export default function ManageExamsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  const { userId, isLoading: authIsLoading } = useAuth(); // Get userId and auth loading state
 
   const fetchExams = useCallback(async () => {
+    if (!userId && !authIsLoading) {
+      setError("User not authenticated. Cannot load exams.");
+      setIsLoading(false);
+      setExams([]);
+      setFilteredExams([]);
+      return;
+    }
+    if (authIsLoading || !userId) { // Wait for auth and userId
+      setIsLoading(true); // Keep loading if auth is pending or no userId yet
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
-    const result = await listExamsAction();
+    const result = await listAllExamsForSetterAction(userId); // Use listAllExamsForSetterAction
     if (result.success && result.exams) {
       setExams(result.exams);
       setFilteredExams(result.exams);
     } else {
       setError(result.message || "Failed to load exams.");
       toast({ title: "Error", description: result.message || "Failed to load exams.", variant: "destructive" });
+      setExams([]);
+      setFilteredExams([]);
     }
     setIsLoading(false);
-  }, [toast]);
+  }, [toast, userId, authIsLoading]);
 
   useEffect(() => {
     fetchExams();
-  }, [fetchExams]);
+  }, [fetchExams]); // fetchExams dependency already includes userId and authIsLoading
 
   useEffect(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
@@ -49,14 +65,14 @@ export default function ManageExamsPage() {
     const result = await deleteExamAction(examId);
     if (result.success) {
       toast({ title: "Success", description: result.message });
-      fetchExams(); // Re-fetch exams to update the list
+      fetchExams(); 
     } else {
       toast({ title: "Error", description: result.message || "Failed to delete exam.", variant: "destructive" });
     }
     return result.success;
   };
 
-  if (isLoading) {
+  if (isLoading || authIsLoading) { // Check both loading states
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 md:h-12 md:w-12 animate-spin text-primary" />
@@ -71,7 +87,7 @@ export default function ManageExamsPage() {
         <AlertTriangle className="h-10 w-10 md:h-12 md:w-12 text-destructive mb-4" />
         <h2 className="text-xl md:text-2xl font-semibold text-destructive mb-2">Oops! Something went wrong.</h2>
         <p className="text-muted-foreground mb-4 text-sm md:text-base">{error}</p>
-        <Button onClick={fetchExams} className="text-sm md:text-base">Try Again</Button>
+        <Button onClick={fetchExams} disabled={!userId} className="text-sm md:text-base">Try Again</Button>
       </div>
     );
   }
@@ -98,7 +114,6 @@ export default function ManageExamsPage() {
           <p className="text-base md:text-xl text-muted-foreground">
             {searchTerm ? "No exams match your search." : "You haven't created any exams yet. Get started by creating one!"}
           </p>
-          {/* Optionally, add a "Create Exam" button here if exams list is empty and no search term */}
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">

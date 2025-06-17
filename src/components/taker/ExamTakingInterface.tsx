@@ -2,7 +2,7 @@
 "use client";
 
 import type { Exam, Question as QuestionType, UserAnswer } from "@/lib/types";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { submitExamAnswersAction } from "@/lib/actions/exam.actions";
 import { useRouter } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play } from "lucide-react";
+import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play, AlertTriangle, ScreenShare } from "lucide-react";
 
 type ExamTakingInterfaceProps = {
   exam: Exam;
@@ -25,6 +25,7 @@ interface SavedExamState {
   currentQuestionIndex: number;
   timeLeft: number | null;
   isPaused: boolean;
+  examStarted: boolean; // Add examStarted to saved state
 }
 
 const getLocalStorageKey = (examId: string) => `assessmint_exam_progress_${examId}`;
@@ -38,6 +39,9 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isLoadedFromStorage, setIsLoadedFromStorage] = useState(false);
+  const [examStarted, setExamStarted] = useState(false);
+  const [forceSubmitted, setForceSubmitted] = useState(false);
+  const examInterfaceRef = useRef<HTMLDivElement>(null);
 
 
   const { toast } = useToast();
@@ -53,10 +57,11 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
         currentQuestionIndex,
         timeLeft,
         isPaused,
+        examStarted,
       };
       localStorage.setItem(getLocalStorageKey(exam.id), JSON.stringify(stateToSave));
     }
-  }, [answers, currentQuestionIndex, timeLeft, isPaused, exam.id]);
+  }, [answers, currentQuestionIndex, timeLeft, isPaused, examStarted, exam.id]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && exam.id) {
@@ -67,31 +72,97 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
           setAnswers(savedState.answers);
           setCurrentQuestionIndex(savedState.currentQuestionIndex);
           setTimeLeft(savedState.timeLeft);
-          setIsPaused(savedState.isPaused); // Restore paused state
+          setIsPaused(savedState.isPaused);
+          setExamStarted(savedState.examStarted); // Restore examStarted state
+          if (savedState.examStarted && !document.fullscreenElement && examInterfaceRef.current) {
+            // If exam was started and we are not in fullscreen, it implies a reload after exiting FS.
+            // This is a tricky state. For now, we allow resuming but proctoring might have been "violated".
+            // A more strict approach might auto-submit here.
+          }
           toast({ title: "Exam Resumed", description: "Your previous progress has been loaded."});
         } catch (error) {
           console.error("Error loading saved exam state:", error);
-          localStorage.removeItem(getLocalStorageKey(exam.id)); // Clear corrupted state
+          localStorage.removeItem(getLocalStorageKey(exam.id)); 
         }
       }
       setIsLoadedFromStorage(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exam.id]); // Only run once on mount for a given exam
+  }, [exam.id]); 
 
 
   useEffect(() => {
-    if (isLoadedFromStorage) { // Only save after initial load attempt
+    if (isLoadedFromStorage) { 
         saveStateToLocalStorage();
     }
-  }, [answers, currentQuestionIndex, timeLeft, isPaused, saveStateToLocalStorage, isLoadedFromStorage]);
+  }, [answers, currentQuestionIndex, timeLeft, isPaused, examStarted, saveStateToLocalStorage, isLoadedFromStorage]);
+
+
+  const handleSubmit = useCallback(async (autoSubmit: boolean = false, reason?: string) => {
+    if (forceSubmitted || isLoading) return; // Prevent multiple submissions
+    if (autoSubmit) {
+        setForceSubmitted(true);
+    }
+    setIsLoading(true);
+
+    // Attempt to exit fullscreen before navigating away
+    if (document.fullscreenElement) {
+        try {
+            await document.exitFullscreen();
+        } catch (err) {
+            console.error("Could not exit fullscreen:", err);
+        }
+    }
+
+    const result = await submitExamAnswersAction({ examId: exam.id, answers });
+    setIsLoading(false);
+    if (result.success) {
+      toast({ title: reason ? "Exam Submitted" : "Exam Submitted!", description: reason || result.message || "Your answers have been recorded." });
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(getLocalStorageKey(exam.id));
+      }
+      router.push(`/taker/exams?submission=${result.submissionId}`); 
+    } else {
+      toast({ title: "Submission Failed", description: result.message || "Could not submit your answers.", variant: "destructive" });
+      setForceSubmitted(false); // Allow user to try submitting normally if auto-submit failed
+    }
+    if (autoSubmit && timeLeft === 0 && !reason) { 
+        toast({ title: "Time's Up!", description: "Your exam has been automatically submitted.", variant: "default" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam.id, answers, router, toast, forceSubmitted, isLoading, timeLeft]);
 
 
   useEffect(() => {
-    if (isPaused || !isLoadedFromStorage || timeLeft === null) return;
+    if (!examStarted || isPaused || !isLoadedFromStorage) return;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !isPaused && !forceSubmitted && !isLoading) {
+        handleSubmit(true, "Exited fullscreen mode");
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && !isPaused && !forceSubmitted && !isLoading) {
+        handleSubmit(true, "Switched browser tab or window");
+      }
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [examStarted, isPaused, forceSubmitted, isLoading, handleSubmit, isLoadedFromStorage]);
+
+
+  useEffect(() => {
+    if (isPaused || !isLoadedFromStorage || timeLeft === null || !examStarted) return;
 
     if (timeLeft === 0) {
-      handleSubmit(true);
+      handleSubmit(true); // Pass no specific reason for time's up
       return;
     }
 
@@ -106,8 +177,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     }, 1000);
 
     return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, isPaused, isLoadedFromStorage]); 
+  }, [timeLeft, isPaused, isLoadedFromStorage, examStarted, handleSubmit]); 
 
   const formatTime = (seconds: number | null): string => {
     if (seconds === null) return "No time limit";
@@ -132,37 +202,35 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
 
   const handlePreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1); // Corrected from prev + 1
-    }
-  };
-
-  const handleSubmit = async (autoSubmit: boolean = false) => {
-    setIsLoading(true);
-    const result = await submitExamAnswersAction({ examId: exam.id, answers });
-    setIsLoading(false);
-    if (result.success) {
-      toast({ title: "Exam Submitted!", description: result.message || "Your answers have been recorded." });
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(getLocalStorageKey(exam.id));
-      }
-      router.push(`/taker/exams?submission=${result.submissionId}`); 
-    } else {
-      toast({ title: "Submission Failed", description: result.message || "Could not submit your answers.", variant: "destructive" });
-    }
-    if (autoSubmit && timeLeft === 0) { 
-        toast({ title: "Time's Up!", description: "Your exam has been automatically submitted.", variant: "default" });
+      setCurrentQuestionIndex(prev => prev - 1); 
     }
   };
 
   const togglePause = () => {
+    if (!examStarted) return; // Cannot pause if exam hasn't started
     setIsPaused(!isPaused);
     if (!isPaused) {
-      // Pausing now, save state
       saveStateToLocalStorage();
       toast({ title: "Exam Paused", description: "Your progress is saved. You can resume when ready."});
     } else {
-      // Resuming now
       toast({ title: "Exam Resumed"});
+    }
+  };
+
+  const handleStartExam = async () => {
+    if (examInterfaceRef.current) {
+      try {
+        await examInterfaceRef.current.requestFullscreen();
+        setExamStarted(true);
+        // Timer and visibility/fullscreen listeners will activate via useEffect due to examStarted change
+      } catch (err) {
+        console.error("Failed to enter fullscreen:", err);
+        toast({
+          title: "Fullscreen Required",
+          description: "Could not enter fullscreen mode. Please enable fullscreen for this site to start the exam.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -178,10 +246,11 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
             value={currentAnswerValue as string} 
             onValueChange={(value) => handleAnswerChange(question.id, value)}
             className="space-y-3"
+            disabled={isPaused || forceSubmitted}
           >
             {question.options?.map((option) => (
               <div key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-muted transition-colors">
-                <RadioGroupItem value={option.id} id={`${question.id}-${option.id}`} />
+                <RadioGroupItem value={option.id} id={`${question.id}-${option.id}`} disabled={isPaused || forceSubmitted}/>
                 <Label htmlFor={`${question.id}-${option.id}`} className="text-sm md:text-base cursor-pointer flex-grow">{option.text}</Label>
               </div>
             ))}
@@ -193,6 +262,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
             value={currentAnswerValue as string}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
             placeholder="Type your short answer here"
+            disabled={isPaused || forceSubmitted}
           />
         );
       case 'ESSAY':
@@ -202,6 +272,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
             placeholder="Type your essay here"
             className="min-h-[150px]"
+            disabled={isPaused || forceSubmitted}
           />
         );
       default:
@@ -219,9 +290,49 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
       </div>
     );
   }
+  
+  if (!examStarted) {
+    return (
+      <div ref={examInterfaceRef} className="max-w-3xl mx-auto py-10">
+        <Card className="shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-2xl md:text-3xl font-headline text-primary flex items-center">
+              <ScreenShare className="mr-3 h-7 w-7" /> Ready to Start: {exam.title}
+            </CardTitle>
+            <CardDescription className="text-sm md:text-base pt-1">
+              {exam.description}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 border-l-4 border-destructive bg-destructive/10 rounded-md">
+              <h3 className="font-semibold text-destructive flex items-center mb-2">
+                <AlertTriangle className="mr-2 h-5 w-5" /> Important Instructions
+              </h3>
+              <ul className="list-disc list-inside space-y-1 text-sm text-destructive/90">
+                <li>This exam must be taken in fullscreen mode.</li>
+                <li>Exiting fullscreen will automatically submit your exam.</li>
+                <li>Switching to another browser tab or window will automatically submit your exam.</li>
+                <li>Ensure you have a stable internet connection.</li>
+                {exam.durationMinutes && <li>You will have <strong>{exam.durationMinutes} minutes</strong> to complete the exam once started.</li>}
+              </ul>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Click the button below to start the exam in fullscreen.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleStartExam} size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-base md:text-lg">
+              Start Exam in Fullscreen
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div ref={examInterfaceRef} className="max-w-3xl mx-auto">
       <Card className="shadow-xl">
         <CardHeader className="border-b">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-0">
@@ -232,7 +343,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
                   <Clock className="mr-2 h-4 w-4 md:h-5 md:w-5" /> {isPaused ? 'Paused' : formatTime(timeLeft)}
                 </div>
               )}
-              <Button variant="outline" size="sm" onClick={togglePause} disabled={isLoading} className="text-sm md:text-base">
+              <Button variant="outline" size="sm" onClick={togglePause} disabled={isLoading || forceSubmitted} className="text-sm md:text-base">
                 {isPaused ? <Play className="mr-1.5 h-4 w-4" /> : <PauseOctagon className="mr-1.5 h-4 w-4" />}
                 {isPaused ? "Resume" : "Pause"}
               </Button>
@@ -271,17 +382,17 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
             </CardContent>
 
             <CardFooter className="flex justify-between border-t pt-6">
-              <Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0 || isLoading} className="text-sm md:text-base">
+              <Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0 || isLoading || forceSubmitted} className="text-sm md:text-base">
                 Previous
               </Button>
               {currentQuestionIndex < exam.questions.length - 1 ? (
-                <Button onClick={handleNextQuestion} disabled={isLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
+                <Button onClick={handleNextQuestion} disabled={isLoading || forceSubmitted} className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
                   Next
                 </Button>
               ) : (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground text-sm md:text-base">
+                    <Button disabled={isLoading || forceSubmitted} className="bg-accent hover:bg-accent/90 text-accent-foreground text-sm md:text-base">
                       <Send className="mr-2 h-4 w-4" /> Submit Exam
                     </Button>
                   </AlertDialogTrigger>
@@ -309,3 +420,4 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     </div>
   );
 }
+

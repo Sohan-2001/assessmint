@@ -12,13 +12,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User, CalendarDays, Inbox } from "lucide-react";
-import type { AttendeeInfo } from "@/lib/actions/exam.actions";
+// Changed AttendeeInfo to the more specific type it receives
+import type { getExamTakerEmailsAction } from "@/lib/actions/exam.actions"; 
 import { format } from "date-fns";
 
 type ExamAttendeesDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  attendees: AttendeeInfo[] | undefined;
+  // Update the attendees prop type to match the actual data structure being passed
+  attendees: Awaited<ReturnType<typeof getExamTakerEmailsAction>>['attendees'];
   examTitle: string;
   isLoading?: boolean;
 };

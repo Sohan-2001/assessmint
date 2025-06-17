@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, BookText, BarChart3 } from "lucide-react";
+import { PlusCircle, BookText, ClipboardCheck } from "lucide-react"; // Changed BarChart3 to ClipboardCheck
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext"; 
 
@@ -47,14 +47,16 @@ export default function SetterDashboardPage() {
 
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">View Results</CardTitle>
-            <BarChart3 className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground" />
+            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Evaluate Exams</CardTitle> 
+            <ClipboardCheck className="h-7 w-7 md:h-8 md:w-8 text-green-600" /> 
           </CardHeader>
           <CardContent>
             <CardDescription className="mb-4 text-sm md:text-base">
-              Analyze exam performance and student submissions. (Coming Soon)
+              Review student submissions and provide marks/feedback.
             </CardDescription>
-            <Button disabled className="w-full text-sm md:text-base">Analytics</Button>
+            <Button asChild className="w-full text-sm md:text-base bg-green-600 hover:bg-green-700 text-white"> 
+              <Link href="/setter/evaluate-exams">Start Evaluating</Link>
+            </Button>
           </CardContent>
         </Card>
         
@@ -64,11 +66,10 @@ export default function SetterDashboardPage() {
         <h2 className="text-xl md:text-2xl font-headline font-semibold text-primary mb-4">Recent Activity</h2>
         <Card className="shadow-md">
           <CardContent className="pt-6">
-            <p className="text-muted-foreground text-sm md:text-base">No recent activity to display. Start by creating an exam!</p>
+            <p className="text-muted-foreground text-sm md:text-base">No recent activity to display. Start by creating or evaluating an exam!</p>
           </CardContent>
         </Card>
       </section>
     </div>
   );
 }
-

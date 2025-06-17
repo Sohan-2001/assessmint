@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getExamAttendeesAction, type AttendeeInfo } from "@/lib/actions/exam.actions";
+import { getExamTakerEmailsAction } from "@/lib/actions/exam.actions"; // Renamed from getExamAttendeesAction
+import type { SubmissionInfo } from "@/lib/actions/exam.actions"; // Using a more generic name might be good if it evolves
 import { ExamAttendeesDialog } from "./ExamAttendeesDialog"; 
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,7 +32,7 @@ type ManageExamCardProps = {
 export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFetchingAttendees, setIsFetchingAttendees] = useState(false);
-  const [attendees, setAttendees] = useState<AttendeeInfo[] | undefined>(undefined);
+  const [attendees, setAttendees] = useState<Array<{email: string, submittedAt: Date}> | undefined>(undefined);
   const [isAttendeesDialogOpen, setIsAttendeesDialogOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -48,14 +49,14 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
 
   const handleViewAttendees = async () => {
     setIsFetchingAttendees(true);
-    setAttendees(undefined); // Clear previous attendees
-    setIsAttendeesDialogOpen(true); // Open dialog immediately to show loading state
-    const result = await getExamAttendeesAction(exam.id);
-    if (result.success) {
+    setAttendees(undefined); 
+    setIsAttendeesDialogOpen(true); 
+    const result = await getExamTakerEmailsAction(exam.id); // Use renamed action
+    if (result.success && result.attendees) {
       setAttendees(result.attendees);
     } else {
       toast({ title: "Error", description: result.message || "Could not fetch attendees.", variant: "destructive" });
-      setIsAttendeesDialogOpen(false); // Close dialog on error
+      setIsAttendeesDialogOpen(false); 
     }
     setIsFetchingAttendees(false);
   };
@@ -139,7 +140,7 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
         <ExamAttendeesDialog
           isOpen={isAttendeesDialogOpen}
           onOpenChange={setIsAttendeesDialogOpen}
-          attendees={attendees}
+          attendees={attendees} /* This needs to match the type expected by ExamAttendeesDialog */
           examTitle={exam.title}
           isLoading={isFetchingAttendees}
         />

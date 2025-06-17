@@ -304,8 +304,6 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
     return { success: false, message: "Invalid submission data." };
   }
   
-  // Ensure the taker exists (or create if using a mock setup that allows it)
-  // This step is crucial if takerId is not a mock. For now, assume takerId is valid.
   const taker = await prisma.user.findUnique({ where: { id: parsed.data.takerId } });
   if (!taker || taker.role !== 'TAKER') {
       return { success: false, message: "Invalid taker." };
@@ -320,7 +318,6 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
         return { success: false, message: "This exam is not yet open for submission." };
     }
 
-    // Check if user has already submitted this exam
     const existingSubmission = await prisma.userSubmission.findFirst({
         where: {
             examId: parsed.data.examId,
@@ -400,5 +397,42 @@ export async function deleteExamAction(examId: string): Promise<{ success: boole
         return { success: false, message: "Exam not found or already deleted." };
     }
     return { success: false, message: `Failed to delete exam: ${errorMessage}` };
+  }
+}
+
+export type AttendeeInfo = {
+  email: string;
+  submittedAt: Date;
+};
+
+export async function getExamAttendeesAction(examId: string): Promise<{ success: boolean; attendees?: AttendeeInfo[]; message?: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  try {
+    const submissions = await prisma.userSubmission.findMany({
+      where: { examId: examId },
+      include: {
+        taker: { // Include the related User (taker)
+          select: { email: true }
+        }
+      },
+      orderBy: {
+        submittedAt: 'desc'
+      }
+    });
+
+    if (!submissions || submissions.length === 0) {
+      return { success: true, attendees: [], message: "No attendees found for this exam." };
+    }
+
+    const attendeesList: AttendeeInfo[] = submissions.map(sub => ({
+      email: sub.taker.email,
+      submittedAt: sub.submittedAt,
+    }));
+
+    return { success: true, attendees: attendeesList };
+  } catch (error) {
+    console.error("Error fetching exam attendees:", error);
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }

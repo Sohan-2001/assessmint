@@ -4,7 +4,7 @@
 import type { Exam } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, HelpCircle, ListChecks, Edit3, Trash2, Loader2, CalendarClock } from "lucide-react"; // Added CalendarClock
+import { Clock, HelpCircle, ListChecks, Edit3, Trash2, Loader2, CalendarClock, Users } from "lucide-react"; 
 import { format, formatDistanceToNow, isFuture } from 'date-fns';
 import {
   AlertDialog,
@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getExamAttendeesAction, type AttendeeInfo } from "@/lib/actions/exam.actions";
+import { ExamAttendeesDialog } from "./ExamAttendeesDialog"; 
+import { useToast } from "@/hooks/use-toast";
 
 type ManageExamCardProps = {
   exam: Exam;
@@ -27,16 +30,34 @@ type ManageExamCardProps = {
 
 export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFetchingAttendees, setIsFetchingAttendees] = useState(false);
+  const [attendees, setAttendees] = useState<AttendeeInfo[] | undefined>(undefined);
+  const [isAttendeesDialogOpen, setIsAttendeesDialogOpen] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     await onDelete(exam.id);
-    setIsDeleting(false);
+    setIsDeleting(false); 
   };
   
   const handleEdit = () => {
     router.push(`/setter/edit-exam/${exam.id}`);
+  };
+
+  const handleViewAttendees = async () => {
+    setIsFetchingAttendees(true);
+    setAttendees(undefined); // Clear previous attendees
+    setIsAttendeesDialogOpen(true); // Open dialog immediately to show loading state
+    const result = await getExamAttendeesAction(exam.id);
+    if (result.success) {
+      setAttendees(result.attendees);
+    } else {
+      toast({ title: "Error", description: result.message || "Could not fetch attendees.", variant: "destructive" });
+      setIsAttendeesDialogOpen(false); // Close dialog on error
+    }
+    setIsFetchingAttendees(false);
   };
 
   const examNotYetOpen = exam.openAt && isFuture(new Date(exam.openAt));
@@ -77,13 +98,19 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
           Created: {formatDistanceToNow(new Date(exam.createdAt), { addSuffix: true })}
         </p>
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-        <Button variant="outline" size="sm" onClick={handleEdit} className="w-full sm:w-auto text-xs md:text-sm">
+      <CardFooter className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-4">
+        <Button variant="outline" size="sm" onClick={handleEdit} className="w-full text-xs md:text-sm">
           <Edit3 className="mr-1.5 h-3.5 w-3.5" /> Edit
         </Button>
+        
+        <Button variant="outline" size="sm" onClick={handleViewAttendees} disabled={isFetchingAttendees} className="w-full text-xs md:text-sm">
+          {isFetchingAttendees ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Users className="mr-1.5 h-3.5 w-3.5" />}
+          Attendees
+        </Button>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm" className="w-full sm:w-auto text-xs md:text-sm">
+            <Button variant="destructive" size="sm" className="w-full text-xs md:text-sm">
               <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
             </Button>
           </AlertDialogTrigger>
@@ -108,6 +135,15 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
           </AlertDialogContent>
         </AlertDialog>
       </CardFooter>
+      {isAttendeesDialogOpen && (
+        <ExamAttendeesDialog
+          isOpen={isAttendeesDialogOpen}
+          onOpenChange={setIsAttendeesDialogOpen}
+          attendees={attendees}
+          examTitle={exam.title}
+          isLoading={isFetchingAttendees}
+        />
+      )}
     </Card>
   );
 }

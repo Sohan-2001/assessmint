@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { listAllExamsForSetterAction } from "@/lib/actions/exam.actions"; // New action
+import { listAllExamsForSetterAction } from "@/lib/actions/exam.actions"; 
 import type { Exam } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, Inbox, Search, ClipboardCheck } from "lucide-react";
@@ -14,36 +14,53 @@ import { EvaluateExamCard } from "@/components/setter/EvaluateExamCard";
 export default function EvaluateExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [filteredExams, setFilteredExams] = useState<Exam[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Local loading state for fetching exams
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { userId, isLoading: authIsLoading } = useAuth();
 
   const fetchExamsForEvaluation = useCallback(async () => {
+    // This function should only be called when userId is available.
     if (!userId) {
-      if (!authIsLoading) setError("User not authenticated. Cannot load exams for evaluation.");
+      // This state should ideally be handled by the useEffect logic below,
+      // but as a safeguard if called directly.
+      setError("User ID not available for fetching exams.");
       setIsLoading(false);
+      setExams([]);
+      setFilteredExams([]);
       return;
     }
-    setIsLoading(true);
+
+    setIsLoading(true); // Set local loading to true when fetching starts
     setError(null);
-    const result = await listAllExamsForSetterAction(userId); // Use new action
+    const result = await listAllExamsForSetterAction(userId);
     if (result.success && result.exams) {
       setExams(result.exams);
       setFilteredExams(result.exams);
     } else {
       setError(result.message || "Failed to load exams for evaluation.");
       toast({ title: "Error", description: result.message || "Failed to load exams.", variant: "destructive" });
+      setExams([]); // Clear exams on error
+      setFilteredExams([]);
     }
-    setIsLoading(false);
-  }, [toast, userId, authIsLoading]);
+    setIsLoading(false); // Set local loading to false when fetching ends
+  }, [toast, userId]);
 
   useEffect(() => {
-    if (!authIsLoading) {
+    if (!authIsLoading && userId) {
+      // Auth is done loading and we have a userId, so fetch exams.
       fetchExamsForEvaluation();
+    } else if (!authIsLoading && !userId) {
+      // Auth is done loading, but no userId is available.
+      setError("User not authenticated. Cannot load exams for evaluation.");
+      setIsLoading(false); // Ensure local loading spinner stops.
+      setExams([]);
+      setFilteredExams([]);
     }
-  }, [fetchExamsForEvaluation, authIsLoading]);
+    // If authIsLoading is true, the main loading spinner (isLoading || authIsLoading) will be shown.
+    // No specific action needed here, as the spinner covers this initial loading phase.
+  }, [authIsLoading, userId, fetchExamsForEvaluation]);
 
   useEffect(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
@@ -54,7 +71,8 @@ export default function EvaluateExamsPage() {
     setFilteredExams(filteredData);
   }, [searchTerm, exams]);
 
-  if (isLoading || authIsLoading) {
+  // Display loading spinner if either authentication is in progress or local exam fetching is in progress.
+  if (authIsLoading || isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 md:h-12 md:w-12 animate-spin text-primary" />
@@ -69,7 +87,7 @@ export default function EvaluateExamsPage() {
         <AlertTriangle className="h-10 w-10 md:h-12 md:w-12 text-destructive mb-4" />
         <h2 className="text-xl md:text-2xl font-semibold text-destructive mb-2">Oops! Something went wrong.</h2>
         <p className="text-muted-foreground mb-4 text-sm md:text-base">{error}</p>
-        <Button onClick={fetchExamsForEvaluation} className="text-sm md:text-base">Try Again</Button>
+        <Button onClick={fetchExamsForEvaluation} disabled={!userId} className="text-sm md:text-base">Try Again</Button>
       </div>
     );
   }

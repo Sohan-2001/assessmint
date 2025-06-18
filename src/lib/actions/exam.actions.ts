@@ -481,7 +481,7 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                     }
                 },
                 answers: { 
-                    include: { question: { orderBy: { createdAt: 'asc' }} } // Include question to ensure order matches
+                    include: { question: true } // Removed the invalid orderBy here
                  } 
             }
         });
@@ -490,7 +490,6 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
             return { success: false, message: "Submission not found." };
         }
 
-        // Ensure answers are mapped in the same order as questions
         const mappedQuestions: Question[] = submission.exam.questions.map(q_prisma => {
             const userAnswerRecord = submission.answers.find(a => a.questionId === q_prisma.id);
             return {
@@ -534,7 +533,6 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
         });
 
         if (!submission) {
-          // Corrected error message interpolation
           throw new Error(`Submission with ID ${submissionId} not found for validation.`);
         }
 
@@ -550,7 +548,6 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
             for (const evalAns of evaluatedAnswers) {
                  const userAnswerToUpdate = submission.answers.find(a => a.questionId === evalAns.questionId);
                  if (!userAnswerToUpdate) {
-                    // Corrected error message interpolation
                     throw new Error(`Answer for question ID ${evalAns.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
                  }
 

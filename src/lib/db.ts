@@ -14,6 +14,9 @@ try {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // Basic SSL for Neon, adjust as needed
+    connectionTimeoutMillis: 10000, // Added: 10 second connection timeout
+    idleTimeoutMillis: 30000, // Added: 30 seconds idle timeout
+    allowExitOnIdle: true, // Explicitly set, default is false for some versions
   });
 
   pool.on('connect', () => {
@@ -52,3 +55,4 @@ export const query = async (text: string, params?: any[]) => {
 
 // Export the pool directly if needed for transactions or specific client management
 export { pool };
+

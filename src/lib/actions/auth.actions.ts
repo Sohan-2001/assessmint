@@ -120,12 +120,22 @@ export async function signInAction(
 export async function signUpAction(
   values: z.infer<typeof signUpSchema>,
 ): Promise<AuthResponse> {
-  console.log("Sign-up Action: Triggered for email:", values.email, "and role:", values.role);
+  console.log("========= SIGN-UP SERVER ACTION CALLED (auth.actions.ts) =========");
+  console.log("Sign-up Action: Values received:", values);
+
+  if (!process.env.DATABASE_URL) {
+    console.warn("Sign-up Action: DATABASE_URL environment variable is not set.");
+    return { success: false, message: "Server configuration error: DATABASE_URL not found."};
+  } else {
+    console.log("Sign-up Action: DATABASE_URL is accessible.");
+  }
+  
   if (process.env.NODE_ENV !== "production") {
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
   try {
+    console.log("Sign-up Action: Checking for existing user with email:", values.email);
     const existingUserResult = await query('SELECT "id" FROM "User" WHERE "email" = $1', [values.email]);
 
     if (existingUserResult.rows.length > 0) {
@@ -135,6 +145,7 @@ export async function signUpAction(
         message: "Authentication failed: User with this email already exists.",
       };
     }
+    console.log("Sign-up Action: No existing user found. Proceeding with hashing password.");
 
     const hashedPassword = await bcrypt.hash(values.password, 10);
     const newUserId = uuidv4();
@@ -146,8 +157,8 @@ export async function signUpAction(
     );
 
     if (newUserResult.rows.length === 0) {
-        console.error("Sign-up Action: User creation failed, no ID returned.");
-        throw new Error("User creation failed at database level.");
+        console.error("Sign-up Action: User creation failed, no ID returned from INSERT.");
+        throw new Error("User creation failed at database level (no rows returned).");
     }
     const newUser = newUserResult.rows[0];
     console.log("Sign-up Action: User created successfully. ID:", newUser.id, "Role:", newUser.role);

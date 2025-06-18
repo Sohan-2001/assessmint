@@ -62,14 +62,6 @@ export default function SetterDashboardPage() {
         
       </section>
       
-      <section>
-        <h2 className="text-xl md:text-2xl font-headline font-semibold text-primary mb-4">Recent Activity</h2>
-        <Card className="shadow-md">
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground text-sm md:text-base">No recent activity to display. Start by creating or evaluating an exam!</p>
-          </CardContent>
-        </Card>
-      </section>
     </div>
   );
 }

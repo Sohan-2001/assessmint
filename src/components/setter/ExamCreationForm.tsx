@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,13 +13,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createExamAction } from "@/lib/actions/exam.actions";
-import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon, Users } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon, Users, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import Papa from "papaparse";
 
 
 const questionOptionSchema = z.object({
@@ -123,7 +124,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { userId, userRole, isLoading: isAuthLoading } = useAuth(); // Added userRole here
+  const { userId, userRole, isLoading: isAuthLoading } = useAuth(); 
   const isEditMode = !!initialData && !!examIdToUpdate;
 
   const defaultQuestionValues = {
@@ -220,7 +221,6 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
     setIsSubmitting(true);
     console.log("ExamCreationForm onSubmit: userId from useAuth():", userId, "userRole from useAuth():", userRole);
 
-
     let combinedOpenAt: Date | null = null;
     if (values.openDate && values.openTime) {
         try {
@@ -235,7 +235,6 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         }
     }
 
-
     if (onSubmitOverride && examIdToUpdate) {
         await onSubmitOverride(values, combinedOpenAt);
     } else {
@@ -245,7 +244,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
             return;
         }
         if (!values.passcode || values.passcode.trim() === "") {
-            form.setError("passcode", { type: "manual", message: "Passcode is required to create an exam." });
+            form.setError("passcode", { type: "manual", message: "Passcode is required." });
             toast({ title: "Error", description: "Passcode is required.", variant: "destructive" });
             setIsSubmitting(false);
             return;
@@ -260,7 +259,6 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
 
         const { openDate, openTime, ...payloadForAction } = examDataForCreation;
         console.log("ExamCreationForm onSubmit: Payload being sent to createExamAction:", payloadForAction);
-
 
         try {
           const result = await createExamAction(payloadForAction);
@@ -288,6 +286,52 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
     }
     setIsSubmitting(false);
   }
+
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== "text/csv") {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload a CSV file (.csv).",
+          variant: "destructive",
+        });
+        event.target.value = ""; // Reset file input
+        return;
+      }
+
+      Papa.parse<string[]>(file, {
+        complete: (results) => {
+          const emails = results.data
+            .map(row => row[0]?.trim()) // Assuming email is in the first column
+            .filter(email => email && z.string().email().safeParse(email).success); // Basic validation
+          
+          if (emails.length > 0) {
+            form.setValue("allowedTakerEmails", emails.join(", "));
+            toast({
+              title: "Emails Imported",
+              description: `${emails.length} valid emails extracted from the CSV and added to the list.`,
+            });
+          } else {
+            toast({
+              title: "No Emails Found",
+              description: "No valid emails were found in the first column of the CSV.",
+              variant: "default",
+            });
+          }
+           event.target.value = ""; // Reset file input after processing
+        },
+        error: (error) => {
+          toast({
+            title: "CSV Parsing Error",
+            description: error.message,
+            variant: "destructive",
+          });
+           event.target.value = ""; 
+        },
+      });
+    }
+  };
 
   return (
     <Card className="w-full mx-auto shadow-xl">
@@ -370,11 +414,29 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                     />
                   </FormControl>
                   <FormMessage />
-                  <p className="text-xs text-muted-foreground">
-                    If you provide emails, only these users can access the exam. Leave blank to allow any registered taker with the passcode.
-                  </p>
                 </FormItem>
               )} />
+              <div className="mt-2">
+                <FormLabel htmlFor="email-upload" className="text-sm font-medium">
+                  Or Upload CSV
+                </FormLabel>
+                <div className="flex items-center gap-2 mt-1">
+                  <Input
+                    id="email-upload"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    className="text-sm file:mr-2 file:py-1.5 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-muted/80"
+                  />
+                   <UploadCloud className="h-5 w-5 text-muted-foreground" />
+                </div>
+                 <p className="text-xs text-muted-foreground mt-1">
+                    Upload a .csv file with emails in the first column. Existing emails in the text area above will be replaced.
+                  </p>
+              </div>
+               <p className="text-xs text-muted-foreground mt-3">
+                    If you provide emails, only these users can access the exam. Leave blank to allow any registered taker with the passcode.
+                  </p>
             </div>
 
 

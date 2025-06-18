@@ -29,18 +29,23 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
 
   useEffect(() => {
+    console.log("SetterLayout Auth Check -> isLoading:", isAuthLoading, "isAuthenticated:", isAuthenticated, "userRole:", userRole);
     if (!isAuthLoading && (!isAuthenticated || userRole !== "setter")) {
+      console.log("SetterLayout: Redirecting to /setter-sign-in based on auth state.");
       router.push("/setter-sign-in");
     }
   }, [isAuthenticated, userRole, isAuthLoading, router]);
 
   if (isAuthLoading || !isAuthenticated || userRole !== "setter" || isMobile === undefined) {
+    console.log("SetterLayout: Displaying Loader. isAuthLoading:", isAuthLoading, "isAuthenticated:", isAuthenticated, "userRole:", userRole, "isMobile:", isMobile);
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
+  
+  console.log("SetterLayout: Rendering content for authenticated setter.");
 
   return (
     <div className={`flex h-screen ${isMobile ? 'flex-col' : 'flex-row'}`}>

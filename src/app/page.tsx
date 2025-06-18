@@ -1,5 +1,4 @@
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Edit3, UserCheck } from 'lucide-react';
@@ -16,19 +15,9 @@ export default function HomePage() {
         </p>
       </header>
 
-      <div className="mb-12 w-full max-w-4xl">
-        <Image
-          src="https://placehold.co/1200x600.png"
-          alt="AssessMint platform illustration"
-          width={1200}
-          height={600}
-          className="rounded-lg shadow-xl object-cover"
-          data-ai-hint="education technology"
-          priority
-        />
-      </div>
+      {/* The image section has been removed from here */}
 
-      <section className="grid md:grid-cols-2 gap-8 max-w-4xl w-full mb-12">
+      <section className="grid md:grid-cols-2 gap-8 max-w-4xl w-full mb-12 mt-8"> {/* Added mt-8 for spacing after image removal */}
         <div className="bg-card p-6 md:p-8 rounded-lg shadow-lg flex flex-col items-center">
           <Edit3 className="w-12 h-12 md:w-16 md:h-16 text-primary mb-4" />
           <h2 className="text-2xl md:text-3xl font-headline font-semibold text-primary mb-3">For Exam Setters</h2>

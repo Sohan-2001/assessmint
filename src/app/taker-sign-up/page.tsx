@@ -4,13 +4,12 @@
 import { AuthForm } from "@/components/auth/AuthForm";
 import AuthPageLayout from "@/components/layout/AuthPageLayout";
 import { signUpAction } from "@/lib/actions/auth.actions";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { useState } from "react";
-import { Role } from "@prisma/client"; // Import Prisma Role
+import { Role } from "@/lib/types"; // Use local Role
+import { useRouter } from 'next/navigation';
 
-// Match the schema in auth.actions.ts, though confirmPassword is only for UI validation
 const signUpFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters.")
@@ -26,22 +25,22 @@ const signUpFormSchema = z.object({
 
 
 export default function TakerSignUpPage() {
-  const { login } = useAuth(); // Login context might not be directly used if not auto-logging in after signup
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSignUp = async (values: z.infer<typeof signUpFormSchema>) => {
     setIsLoading(true);
     const result = await signUpAction({ 
       email: values.email,
       password: values.password,
-      confirmPassword: values.confirmPassword, // Action schema handles confirmPassword check
-      role: Role.TAKER // Use Prisma Role
+      confirmPassword: values.confirmPassword,
+      role: Role.TAKER
     });
     setIsLoading(false);
     if (result.success && result.userId) { 
       toast({ title: "Success", description: result.message });
-      // router.push("/taker-sign-in"); // Redirect to sign-in after successful signup
+      router.push("/taker-sign-in"); 
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }

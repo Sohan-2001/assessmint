@@ -1,52 +1,80 @@
 
 {
   "rules": {
-    // Default deny all reads and writes
+    // Default deny all reads and writes. This is a secure default.
     ".read": false,
     ".write": false,
+    // "exams" path: example if you were to store exam metadata here.
+    // Currently, exams are in PostgreSQL.
     "exams": {
-      // Allow public read access to exam metadata if needed for listing
-      // This path assumes you might store some public exam info here
       "$examId": {
-        ".read": true,
-        // Writes to exams should be restricted to authenticated setters
-        // This would typically involve checking auth.uid against a list of setters
-        // or a role stored in Firebase Auth custom claims.
-        // For simplicity, allowing any authenticated user to write if you manage roles elsewhere.
-         ".write": "auth != null" 
+        // Allow public read access to exam metadata if needed for listing
+        // This is an example, adjust based on actual data stored here.
+        ".read": true, // Or "auth != null" if only authenticated users can see exam list
+        // Writes to exams should be restricted.
+        // Example: only authenticated users (setters) can write.
+        // This requires Firebase Authentication to be set up and used by the writer.
+        ".write": "auth != null"
       }
     },
+    // "submissions" path: example if you were to store full submission data here.
+    // Currently, submissions are in PostgreSQL.
     "submissions": {
-      // Students can write their own submissions
       "$submissionId": {
-        // ".write": "auth != null && newData.child('takerId').val() === auth.uid",
-        // ".read": "auth != null && (data.child('takerId').val() === auth.uid || /* logic for setters to read */ false)"
-        // For now, allowing authenticated users to read/write. Refine based on your auth model.
+        // Example: Only the student who submitted or an authenticated setter can read/write.
+        // This requires more complex logic and knowing user roles/IDs from Firebase Auth.
+        // ".read": "auth != null && (data.child('takerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'setter')",
+        // ".write": "auth != null && newData.child('takerId').val() === auth.uid" // Student writes own
+        // Simplified for now, assuming primary storage is PostgreSQL:
         ".read": "auth != null",
         ".write": "auth != null"
       }
     },
+    // "evaluations" path: This is where AI evaluation results (or manual ones via app) are stored.
     "evaluations": {
       "$submissionId": {
-        // Only authenticated users (presumably setters) can write evaluations
-        ".write": "auth != null",
-        // Authenticated users (setters, and student for their own) can read
-        // This rule is simplified; ideally, you'd check if auth.uid is the takerId
-        // or if the user has a 'setter' role.
+        // IMPORTANT: The `saveEvaluationAction` in your Next.js backend writes to this path.
+        // If that action uses the Firebase *client* SDK (as currently configured in `src/lib/firebase.ts`)
+        // AND the server isn't authenticated with Firebase (e.g., via `signInWithCustomToken` or similar
+        // for server-side operations), then `auth` will be `null` here.
+        // This rule `".write": "auth != null"` would then BLOCK server writes.
+        //
+        // OPTION 1 (Recommended for server writes):
+        // Use the Firebase *Admin* SDK in your Next.js server actions. Admin SDK bypasses these rules.
+        // This is the most secure way for server-to-database operations.
+        //
+        // OPTION 2 (If sticking with Client SDK on Server and no Firebase Server Auth):
+        // You'd have to make this rule more permissive, e.g., `".write": true`,
+        // and rely solely on your Next.js application's authentication to protect this endpoint.
+        // This is less secure from RTDB's perspective.
+        //
+        // OPTION 3 (Client SDK on Server WITH Firebase Server Auth):
+        // Your server action would need to sign in to Firebase (e.g. as a service user or anonymous)
+        // for `auth` to be non-null.
+        //
+        // Current rule assumes Firebase Auth is used by the writer:
+        ".write": "auth != null", // Only authenticated (Firebase Auth) users can write evaluations.
+
+        // For reading evaluations:
+        // Example: Student can read their own, setters can read all.
+        // ".read": "auth != null && (root.child('submissions').child($submissionId).child('takerId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'setter')"
+        // Simplified rule, assuming authenticated users (student or setter) can read.
+        // This also relies on Firebase Authentication.
         ".read": "auth != null"
-        // More granular read for student:
-        // ".read": "auth != null && (root.child('submissions').child($submissionId).child('takerId').val() === auth.uid || /* logic for setters */ false)"
       }
     },
+    // "users" path: example if you were to store user profiles/roles in RTDB
+    // complementary to your PostgreSQL User table.
     "users": {
-      // Generally, users node should be more restricted.
-      // Allow users to read their own profile, and maybe some public parts of others.
       "$uid": {
+        // Users can read/write their own profile data.
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid"
+        // Public parts of profiles might have broader read access.
+        // "publicProfile": { ".read": true }
       }
     }
-    // You might have other top-level nodes like 'questions', etc.
-    // Apply similar principles: default deny, then grant specific access.
+    // You might have other top-level nodes. Apply similar principles:
+    // Default deny, then grant specific access based on authentication and data structure.
   }
 }

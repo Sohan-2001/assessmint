@@ -1,19 +1,3 @@
-
-import { PrismaClient } from '@prisma/client';
-
-declare global {
-  // allow global `var` declarations
-  // eslint-disable-next-line no-unused-vars
-  var prisma: PrismaClient | undefined;
-}
-
-export const prisma =
-  global.prisma ||
-  new PrismaClient({
-    // log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
-}
-
+// This file is no longer used as Prisma has been removed.
+// You can delete this file from your project.
+// Keeping it empty to signify removal in the context of this tool.

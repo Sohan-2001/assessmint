@@ -1,41 +1,54 @@
 
 export type QuestionType = 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY';
 
+// Define Role enum locally as Prisma is removed
+export enum Role {
+  SETTER = 'SETTER',
+  TAKER = 'TAKER',
+}
+
 export interface QuestionOption {
   id: string;
   text: string;
+  questionId?: string; // Keep if useful for frontend, but populated from join
 }
 
 export interface Question {
   id: string;
   text: string;
   type: QuestionType;
-  options?: QuestionOption[]; 
-  correctAnswer?: string; 
+  options?: QuestionOption[];
+  correctAnswer?: string;
   points: number;
+  examId?: string; // Keep if useful for frontend
   // Fields for evaluation UI, not directly from DB model but useful in components
-  userAnswer?: string | string[]; 
+  userAnswer?: string | string[];
   awardedMarks?: number | null;
   feedback?: string | null;
+  createdAt?: Date; // Added for consistency if needed
+  updatedAt?: Date; // Added for consistency if needed
 }
 
 export interface Exam {
-  id: string;
+  id:string;
   title: string;
-  description: string; 
+  description: string;
   passcode: string;
   questions: Question[];
   setterId: string;
   createdAt: Date;
+  updatedAt?: Date; // Added for consistency
   durationMinutes?: number;
-  openAt?: Date; 
+  openAt?: Date;
 }
 
 export interface UserAnswer {
+  id?: string; // Optional if not always fetched/needed on client
   questionId: string;
-  answer: string | string[]; 
-  awardedMarks?: number | null; // For storing marks given by setter
-  feedback?: string | null; // For storing feedback given by setter
+  answer: string | string[];
+  awardedMarks?: number | null;
+  feedback?: string | null;
+  submissionId?: string; // Optional
 }
 
 export interface UserSubmission {
@@ -44,9 +57,11 @@ export interface UserSubmission {
   takerId: string;
   answers: UserAnswer[];
   submittedAt: Date;
-  score?: number; // Auto-calculated score for MCQs perhaps
-  evaluatedScore?: number | null; // Score after manual evaluation
-  isEvaluated?: boolean; // Has this submission been manually evaluated
+  score?: number;
+  evaluatedScore?: number | null;
+  isEvaluated?: boolean;
+  createdAt?: Date; // Added for consistency
+  updatedAt?: Date; // Added for consistency
 }
 
 
@@ -54,7 +69,7 @@ export interface UserSubmission {
 export interface SubmissionInfo {
   submissionId: string;
   takerId: string;
-  email: string;
+  email: string; // Assumes User table has email
   submittedAt: Date;
   isEvaluated: boolean;
   evaluatedScore?: number | null;
@@ -63,12 +78,12 @@ export interface SubmissionInfo {
 // Type for displaying detailed submission with exam questions for evaluation
 export interface SubmissionForEvaluation {
     submissionId: string;
-    takerEmail: string;
+    takerEmail: string; // Assumes User table has email
     examTitle: string;
     examId: string;
-    questions: Array<Question & { // Question here includes userAnswer, awardedMarks, feedback for UI
+    questions: Array<Question & {
         userAnswer?: string | string[];
-        awardedMarks?: number | null; 
+        awardedMarks?: number | null;
         feedback?: string | null;
     }>;
     isEvaluated: boolean;

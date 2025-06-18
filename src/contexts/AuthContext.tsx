@@ -3,16 +3,16 @@
 
 import { createContext, useContext, useState, type ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Role } from '@/lib/types'; // Import local Role
 
-export type UserRole = 'setter' | 'taker' | null;
+export type UserRole = Role | null; // Use local Role enum
 
 interface AuthContextType {
   isAuthenticated: boolean;
   userRole: UserRole;
   userId: string | null;
-  // Removed token
   isLoading: boolean;
-  login: (role: UserRole, userId: string, redirectPath?: string) => void; // Removed token from login
+  login: (role: UserRole, userId: string, redirectPath?: string) => void;
   logout: () => void;
 }
 
@@ -22,7 +22,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  // Removed token state
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -31,13 +30,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const storedAuthRaw = localStorage.getItem('assessMintAuth');
       if (storedAuthRaw) {
         const storedAuth = JSON.parse(storedAuthRaw);
-        // Updated to check for id and role only
-        if (storedAuth.role && storedAuth.id) {
+        if (storedAuth.role && storedAuth.id && Object.values(Role).includes(storedAuth.role)) {
           setIsAuthenticated(true);
-          setUserRole(storedAuth.role);
+          setUserRole(storedAuth.role as Role);
           setUserId(storedAuth.id);
-          // Removed token loading
         } else {
+          console.warn("Invalid auth state in localStorage, removing.");
           localStorage.removeItem('assessMintAuth');
         }
       }
@@ -49,15 +47,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (role: UserRole, id: string, redirectPath?: string) => {
-    setIsAuthenticated(true);
-    setUserRole(role);
-    setUserId(id);
-    // Removed token setting
-    localStorage.setItem('assessMintAuth', JSON.stringify({ role, id })); // Store without token
-    if (redirectPath) {
-      router.push(redirectPath);
+    if (role && Object.values(Role).includes(role)) {
+      setIsAuthenticated(true);
+      setUserRole(role);
+      setUserId(id);
+      localStorage.setItem('assessMintAuth', JSON.stringify({ role, id }));
+      if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push(role === Role.SETTER ? '/setter/dashboard' : '/taker/exams');
+      }
     } else {
-      router.push(role === 'setter' ? '/setter/dashboard' : '/taker/exams');
+      console.error("Invalid role provided to login function:", role);
     }
   };
 
@@ -65,7 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
     setUserRole(null);
     setUserId(null);
-    // Removed token clearing
     localStorage.removeItem('assessMintAuth');
     router.push('/');
   };

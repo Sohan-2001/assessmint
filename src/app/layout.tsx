@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from '@/components/Providers';
@@ -5,8 +6,8 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { AiPanelProvider } from '@/contexts/AiPanelContext';
 
 export const metadata: Metadata = {
-  title: 'AssessMint - Modern Exam Platform',
-  description: 'Create, manage, and take exams with ease using AssessMint.',
+  title: 'Examly - Modern Exam Platform',
+  description: 'Create, manage, and take exams with ease using Examly, an AI-enhanced assessment tool.',
 };
 
 export default function RootLayout({

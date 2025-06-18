@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, FileText, SparklesIcon, Menu } from 'lucide-react';
+import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, FileText, SparklesIcon, Menu, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -18,14 +18,13 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger, // Added SheetTrigger here
-  // SheetClose, // SheetClose is not explicitly used for programmatic closing here
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter } from 'next/navigation';
 import { useAiPanel } from '@/contexts/AiPanelContext';
 import { useState } from 'react';
-import { Role } from '@/lib/types'; // Import the Role enum
+import { Role } from '@/lib/types'; 
 
 export function AppHeader() {
   const { isAuthenticated, userRole, logout, isLoading } = useAuth();
@@ -59,13 +58,16 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-2" aria-label="AssessMint Home">
+        <Link href="/" className="flex items-center gap-2" aria-label="Examly Home">
           <BookOpenCheck className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-headline font-bold text-primary">AssessMint</span>
+          <span className="text-2xl font-headline font-bold text-primary">Examly</span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-x-1 lg:gap-x-2">
+          <Button variant="ghost" asChild>
+            <Link href="/about"><Info className="mr-2 h-5 w-5" />About</Link>
+          </Button>
           {isLoading ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
           ) : isAuthenticated ? (
@@ -163,12 +165,16 @@ export function AppHeader() {
                 <SheetTitle asChild>
                   <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
                     <BookOpenCheck className="h-7 w-7 text-primary" />
-                    <span className="text-xl font-headline font-bold text-primary">AssessMint</span>
+                    <span className="text-xl font-headline font-bold text-primary">Examly</span>
                   </Link>
                 </SheetTitle>
               </SheetHeader>
 
               <nav className="flex-grow p-6 space-y-3">
+                <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/about')}>
+                  <Info className={commonMobileIconStyles} />About Examly
+                </Button>
+                <DropdownMenuSeparator className="my-3"/>
                 {isLoading ? (
                   <div className="space-y-3">
                     <div className="h-8 w-full animate-pulse rounded-md bg-muted"></div>
@@ -231,7 +237,6 @@ export function AppHeader() {
                         <p className="text-sm font-medium leading-none">
                           {userRole === Role.SETTER ? 'Exam Setter' : 'Exam Taker'}
                         </p>
-                        {/* You can add email or other info here if available */}
                       </div>
                     </div>
                   <Button variant="ghost" className={commonMobileLinkStyles} onClick={handleLogout}>
@@ -246,5 +251,3 @@ export function AppHeader() {
     </header>
   );
 }
-
-    

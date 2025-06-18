@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, BookText, ClipboardCheck } from "lucide-react"; // Changed BarChart3 to ClipboardCheck
+import { PlusCircle, BookText, ClipboardCheck, Video } from "lucide-react"; 
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext"; 
 
@@ -14,7 +14,7 @@ export default function SetterDashboardPage() {
     <div className="space-y-8">
       <h1 className="text-3xl md:text-4xl font-headline font-bold text-primary">Setter Dashboard</h1>
       
-      <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <Card className="shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Create New Exam</CardTitle>
@@ -57,6 +57,19 @@ export default function SetterDashboardPage() {
             <Button asChild className="w-full text-sm md:text-base bg-green-600 hover:bg-green-700 text-white"> 
               <Link href="/setter/evaluate-exams">Start Evaluating</Link>
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Proctor</CardTitle> 
+            <Video className="h-7 w-7 md:h-8 md:w-8 text-blue-600" /> 
+          </CardHeader>
+          <CardContent>
+            <CardDescription className="mb-4 text-sm md:text-base">
+              Monitor exams with AI-powered proctoring features.
+            </CardDescription>
+            <p className="mt-4 text-sm text-muted-foreground">Feature coming soon.</p>
           </CardContent>
         </Card>
         

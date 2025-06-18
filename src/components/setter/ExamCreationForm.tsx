@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createExamAction } from "@/lib/actions/exam.actions"; 
-import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon } from "lucide-react";
+import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -49,6 +49,7 @@ export const examFormSchema = z.object({
     .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time (HH:MM)")
     .optional()
     .nullable(),
+  allowedTakerEmails: z.string().optional(), // Textarea for comma-separated emails
 }).refine(data => {
     if ((data.openDate && !data.openTime) || (!data.openDate && data.openTime)) {
         return false;
@@ -159,6 +160,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         })) : [defaultQuestionValues],
         openDate: formOpenDate,
         openTime: formOpenTime,
+        allowedTakerEmails: data?.allowedTakerEmails || "", // Initialize from initialData
     };
   };
   
@@ -172,6 +174,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
       questions: [defaultQuestionValues],
       openDate: null,
       openTime: null,
+      allowedTakerEmails: "",
     },
   });
 
@@ -187,6 +190,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         questions: [defaultQuestionValues],
         openDate: null,
         openTime: null,
+        allowedTakerEmails: "",
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -246,14 +250,13 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
             return;
         }
 
-        // Prepare payload for createExamAction, including setterId
         const examDataForCreation = {
-            ...values, // Spread the form values
-            setterId: userId, // Add the authenticated setter's ID
-            openAt: combinedOpenAt, 
+            ...values, 
+            setterId: userId, 
+            openAt: combinedOpenAt,
+            allowedTakerEmails: values.allowedTakerEmails || "", // Pass as string
         };
-        // Remove form-specific date/time fields if they exist on values, as openAt is now the source of truth
-        // This is defensive; examDataForCreation already structures it correctly by spreading values first.
+        
         const { openDate, openTime, ...payloadForAction } = examDataForCreation;
 
 
@@ -347,6 +350,31 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
               )} />
               </div>
             </div>
+
+             <div className="space-y-4 p-3 md:p-4 lg:p-6 border rounded-lg bg-card">
+              <h3 className="text-base md:text-lg lg:text-xl font-headline font-semibold text-primary flex items-center">
+                <Users className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+                Allowed Takers (Optional)
+              </h3>
+              <FormField control={form.control} name="allowedTakerEmails" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Taker Emails</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Enter email addresses, separated by commas or new lines. e.g., user1@example.com, user2@example.com" 
+                      {...field} 
+                      value={field.value ?? ""}
+                      className="min-h-[80px]"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-muted-foreground">
+                    If you provide emails, only these users can access the exam. Leave blank to allow any registered taker with the passcode.
+                  </p>
+                </FormItem>
+              )} />
+            </div>
+
 
             <div className="space-y-4 p-3 md:p-4 lg:p-6 border rounded-lg bg-card">
                  <h3 className="text-base md:text-lg lg:text-xl font-headline font-semibold text-primary">Scheduling (Optional)</h3>

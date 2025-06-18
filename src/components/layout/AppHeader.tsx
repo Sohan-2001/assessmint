@@ -18,13 +18,14 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
-  SheetClose, 
+  SheetTrigger, // Added SheetTrigger here
+  // SheetClose, // SheetClose is not explicitly used for programmatic closing here
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRouter } from 'next/navigation';
 import { useAiPanel } from '@/contexts/AiPanelContext';
-import { useState } from 'react'; 
+import { useState } from 'react';
+import { Role } from '@/lib/types'; // Import the Role enum
 
 export function AppHeader() {
   const { isAuthenticated, userRole, logout, isLoading } = useAuth();
@@ -37,7 +38,7 @@ export function AppHeader() {
     setIsMobileMenuOpen(false); 
   };
 
-  const getInitials = (role: string | null) => {
+  const getInitials = (role: Role | null) => {
     if (!role) return "U";
     return role.charAt(0).toUpperCase();
   };
@@ -69,7 +70,7 @@ export function AppHeader() {
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
           ) : isAuthenticated ? (
             <>
-              {userRole === 'setter' && (
+              {userRole === Role.SETTER && (
                 <>
                   <Button variant="ghost" asChild>
                     <Link href="/setter/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
@@ -82,7 +83,7 @@ export function AppHeader() {
                   </Button>
                 </>
               )}
-              {userRole === 'taker' && (
+              {userRole === Role.TAKER && (
                 <>
                   <Button variant="ghost" asChild>
                     <Link href="/taker/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
@@ -104,7 +105,7 @@ export function AppHeader() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {userRole === 'setter' ? 'Exam Setter' : 'Exam Taker'}
+                        {userRole === Role.SETTER ? 'Exam Setter' : 'Exam Taker'}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -175,7 +176,7 @@ export function AppHeader() {
                   </div>
                 ) : isAuthenticated ? (
                   <>
-                    {userRole === 'setter' && (
+                    {userRole === Role.SETTER && (
                       <>
                         <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter/dashboard')}>
                           <LayoutDashboard className={commonMobileIconStyles} />Dashboard
@@ -188,7 +189,7 @@ export function AppHeader() {
                         </Button>
                       </>
                     )}
-                    {userRole === 'taker' && (
+                    {userRole === Role.TAKER && (
                       <>
                         <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker/dashboard')}>
                           <LayoutDashboard className={commonMobileIconStyles} />Dashboard
@@ -228,8 +229,9 @@ export function AppHeader() {
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium leading-none">
-                          {userRole === 'setter' ? 'Exam Setter' : 'Exam Taker'}
+                          {userRole === Role.SETTER ? 'Exam Setter' : 'Exam Taker'}
                         </p>
+                        {/* You can add email or other info here if available */}
                       </div>
                     </div>
                   <Button variant="ghost" className={commonMobileLinkStyles} onClick={handleLogout}>
@@ -244,3 +246,5 @@ export function AppHeader() {
     </header>
   );
 }
+
+    

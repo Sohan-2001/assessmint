@@ -38,19 +38,17 @@ const createExamActionPayloadSchema = examPayloadSchema.extend({
 });
 
 // Helper to map SQL row to App Exam structure
-// This needs to handle potentially multiple rows for the same exam if JOINing questions/options directly
-// Or, it can be used after fetching exam and then questions/options separately.
 function mapDbRowToAppExam(examRow: any, questions: Question[]): Exam {
   return {
     id: examRow.id,
     title: examRow.title,
     description: examRow.description ?? "",
     passcode: examRow.passcode,
-    durationMinutes: examRow.duration_minutes ?? undefined,
-    openAt: examRow.open_at ? new Date(examRow.open_at) : undefined,
-    setterId: examRow.setter_id,
-    createdAt: new Date(examRow.created_at),
-    updatedAt: examRow.updated_at ? new Date(examRow.updated_at) : undefined,
+    durationMinutes: examRow.durationMinutes ?? undefined, // Changed from duration_minutes
+    openAt: examRow.openAt ? new Date(examRow.openAt) : undefined, // Changed from open_at
+    setterId: examRow.setterId, // Changed from setter_id
+    createdAt: new Date(examRow.createdAt), // Changed from created_at
+    updatedAt: examRow.updatedAt ? new Date(examRow.updatedAt) : undefined, // Changed from updated_at
     questions: questions,
   };
 }
@@ -61,10 +59,10 @@ function mapDbRowToAppQuestion(questionRow: any, options: QuestionOption[]): Que
         text: questionRow.text,
         type: questionRow.type as AppQuestionType,
         points: questionRow.points,
-        correctAnswer: questionRow.correct_answer ?? undefined,
-        examId: questionRow.exam_id,
-        createdAt: new Date(questionRow.created_at),
-        updatedAt: questionRow.updated_at ? new Date(questionRow.updated_at): undefined,
+        correctAnswer: questionRow.correctAnswer ?? undefined, // Changed from correct_answer
+        examId: questionRow.examId, // Changed from exam_id
+        createdAt: new Date(questionRow.createdAt), // Changed from created_at
+        updatedAt: questionRow.updatedAt ? new Date(questionRow.updatedAt): undefined, // Changed from updated_at
         options: options,
     };
 }
@@ -73,7 +71,7 @@ function mapDbRowToAppOption(optionRow: any): QuestionOption {
     return {
         id: optionRow.id,
         text: optionRow.text,
-        questionId: optionRow.question_id,
+        questionId: optionRow.questionId, // Changed from question_id
     };
 }
 
@@ -101,9 +99,9 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
     }
 
     const examInsertQuery = `
-      INSERT INTO "Exam" (title, description, passcode, duration_minutes, open_at, setter_id, created_at, updated_at)
+      INSERT INTO "Exam" (title, description, passcode, "durationMinutes", "openAt", "setterId", "createdAt", "updatedAt")
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-      RETURNING id, title, description, passcode, duration_minutes, open_at, setter_id, created_at, updated_at;
+      RETURNING id, title, description, passcode, "durationMinutes", "openAt", "setterId", "createdAt", "updatedAt";
     `;
     const examResult = await client.query(examInsertQuery, [
       parsed.data.title,
@@ -120,28 +118,17 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
 
     for (const q_client of parsed.data.questions) {
       const questionInsertQuery = `
-        INSERT INTO "Question" (exam_id, text, type, points, correct_answer, created_at, updated_at)
+        INSERT INTO "Question" ("examId", text, type, points, "correctAnswer", "createdAt", "updatedAt")
         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING id, text, type, points, correct_answer, exam_id, created_at, updated_at;
+        RETURNING id, text, type, points, "correctAnswer", "examId", "createdAt", "updatedAt";
       `;
-      // For MCQ, the client might send option text as correct answer. We need to resolve to an option ID if so.
-      // For now, we'll store what client sends. If client sends option ID, it's fine.
-      // If client sends option text, this needs more robust handling or client-side change.
-      // For simplicity here, assume q_client.correctAnswer is either an option ID or the text for short/essay.
-      // Prisma schema stored optionId as correctAnswer for MCQs. If client passes option TEXT, this will break logic.
-      // For now, let's assume client sends an option's text for MCQ's correctAnswer if `type` is MCQ
-      // And it's a string answer for short_answer/essay.
-      // The ExamCreationForm's `correctAnswer` for MCQ is indeed the text of the correct option.
-      // We must insert options first, get their IDs, then determine the correct option ID to store.
       
-      let correctAnswerForDb = q_client.correctAnswer; // For short/essay
-
       const questionResult = await client.query(questionInsertQuery, [
         examId,
         q_client.text,
         q_client.type,
         q_client.points,
-        null, // Placeholder for correct_answer for MCQ, will update later
+        null, 
       ]);
       const createdQuestionRow = questionResult.rows[0];
       const questionId = createdQuestionRow.id;
@@ -151,9 +138,9 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
         let correctOptionIdForDb: string | undefined = undefined;
         for (const opt_client of q_client.options) {
           const optionInsertQuery = `
-            INSERT INTO "QuestionOption" (question_id, text, created_at, updated_at)
+            INSERT INTO "QuestionOption" ("questionId", text, "createdAt", "updatedAt")
             VALUES ($1, $2, NOW(), NOW())
-            RETURNING id, text, question_id;
+            RETURNING id, text, "questionId";
           `;
           const optionResult = await client.query(optionInsertQuery, [questionId, opt_client.text]);
           const createdOptionRow = optionResult.rows[0];
@@ -163,14 +150,13 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
           }
         }
         if (correctOptionIdForDb) {
-          await client.query('UPDATE "Question" SET correct_answer = $1 WHERE id = $2', [correctOptionIdForDb, questionId]);
-          createdQuestionRow.correct_answer = correctOptionIdForDb; // Update the row data
+          await client.query('UPDATE "Question" SET "correctAnswer" = $1 WHERE id = $2', [correctOptionIdForDb, questionId]);
+          createdQuestionRow.correctAnswer = correctOptionIdForDb; 
         }
       } else {
-         // For non-MCQ, if there's a correctAnswer, update the question with it
         if (q_client.correctAnswer) {
-            await client.query('UPDATE "Question" SET correct_answer = $1 WHERE id = $2', [q_client.correctAnswer, questionId]);
-            createdQuestionRow.correct_answer = q_client.correctAnswer;
+            await client.query('UPDATE "Question" SET "correctAnswer" = $1 WHERE id = $2', [q_client.correctAnswer, questionId]);
+            createdQuestionRow.correctAnswer = q_client.correctAnswer;
         }
       }
       createdQuestions.push(mapDbRowToAppQuestion(createdQuestionRow, createdOptions));
@@ -203,17 +189,9 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    // Update Exam details
-    const examDataToUpdate: any = {
-      title: parsed.data.title,
-      description: parsed.data.description,
-      duration_minutes: parsed.data.durationMinutes,
-      open_at: parsed.data.openAt,
-      updated_at: 'NOW()',
-    };
-    let setClauses = ['title = $1', 'description = $2', 'duration_minutes = $3', 'open_at = $4', 'updated_at = NOW()'];
-    let queryParams = [parsed.data.title, parsed.data.description, parsed.data.durationMinutes, parsed.data.openAt];
+    
+    let setClauses = ['title = $1', 'description = $2', '"durationMinutes" = $3', '"openAt" = $4', '"updatedAt" = NOW()'];
+    let queryParams: (string | number | Date | null | undefined)[] = [parsed.data.title, parsed.data.description, parsed.data.durationMinutes, parsed.data.openAt];
     
     if (parsed.data.passcode && parsed.data.passcode.trim() !== "") {
       setClauses.push(`passcode = $${queryParams.length + 1}`);
@@ -228,24 +206,22 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
     }
     const updatedExamRow = updatedExamResult.rows[0];
 
-    // Delete old questions and options
-    const oldQuestionOptionsResult = await client.query('SELECT id FROM "Question" WHERE exam_id = $1', [examId]);
+    const oldQuestionOptionsResult = await client.query('SELECT id FROM "Question" WHERE "examId" = $1', [examId]);
     if (oldQuestionOptionsResult.rows.length > 0) {
         const oldQuestionIds = oldQuestionOptionsResult.rows.map(r => r.id);
-        await client.query('DELETE FROM "QuestionOption" WHERE question_id = ANY($1::TEXT[])', [oldQuestionIds]);
+        await client.query('DELETE FROM "QuestionOption" WHERE "questionId" = ANY($1::TEXT[])', [oldQuestionIds]);
     }
-    await client.query('DELETE FROM "Question" WHERE exam_id = $1', [examId]);
+    await client.query('DELETE FROM "Question" WHERE "examId" = $1', [examId]);
 
-    // Create new questions and options
     const createdQuestions: Question[] = [];
     for (const q_client of parsed.data.questions) {
       const questionInsertQuery = `
-        INSERT INTO "Question" (exam_id, text, type, points, correct_answer, created_at, updated_at)
+        INSERT INTO "Question" ("examId", text, type, points, "correctAnswer", "createdAt", "updatedAt")
         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-        RETURNING id, text, type, points, correct_answer, exam_id, created_at, updated_at;
+        RETURNING id, text, type, points, "correctAnswer", "examId", "createdAt", "updatedAt";
       `;
       const questionResult = await client.query(questionInsertQuery, [
-        examId, q_client.text, q_client.type, q_client.points, null // Correct answer updated later for MCQ
+        examId, q_client.text, q_client.type, q_client.points, null 
       ]);
       const createdQuestionRow = questionResult.rows[0];
       const questionId = createdQuestionRow.id;
@@ -255,9 +231,9 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         let correctOptionIdForDb: string | undefined = undefined;
         for (const opt_client of q_client.options) {
           const optionInsertQuery = `
-            INSERT INTO "QuestionOption" (question_id, text, created_at, updated_at)
+            INSERT INTO "QuestionOption" ("questionId", text, "createdAt", "updatedAt")
             VALUES ($1, $2, NOW(), NOW())
-            RETURNING id, text, question_id;
+            RETURNING id, text, "questionId";
           `;
           const optionResult = await client.query(optionInsertQuery, [questionId, opt_client.text]);
           const createdOptionRow = optionResult.rows[0];
@@ -267,13 +243,13 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
           }
         }
         if (correctOptionIdForDb) {
-          await client.query('UPDATE "Question" SET correct_answer = $1 WHERE id = $2', [correctOptionIdForDb, questionId]);
-          createdQuestionRow.correct_answer = correctOptionIdForDb;
+          await client.query('UPDATE "Question" SET "correctAnswer" = $1 WHERE id = $2', [correctOptionIdForDb, questionId]);
+          createdQuestionRow.correctAnswer = correctOptionIdForDb;
         }
       } else {
          if (q_client.correctAnswer) {
-            await client.query('UPDATE "Question" SET correct_answer = $1 WHERE id = $2', [q_client.correctAnswer, questionId]);
-            createdQuestionRow.correct_answer = q_client.correctAnswer;
+            await client.query('UPDATE "Question" SET "correctAnswer" = $1 WHERE id = $2', [q_client.correctAnswer, questionId]);
+            createdQuestionRow.correctAnswer = q_client.correctAnswer;
         }
       }
       createdQuestions.push(mapDbRowToAppQuestion(createdQuestionRow, createdOptions));
@@ -300,29 +276,29 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
     let submittedExamIdsQuery = '';
     const queryParams: string[] = [];
     if (takerId) {
-      submittedExamIdsQuery = 'AND e.id NOT IN (SELECT us.exam_id FROM "UserSubmission" us WHERE us.taker_id = $1)';
+      submittedExamIdsQuery = 'AND e.id NOT IN (SELECT us."examId" FROM "UserSubmission" us WHERE us."takerId" = $1)';
       queryParams.push(takerId);
     }
 
     const examsResult = await query(`
-      SELECT e.id, e.title, e.description, e.passcode, e.duration_minutes, e.open_at, e.setter_id, e.created_at, e.updated_at
+      SELECT e.id, e.title, e.description, e.passcode, e."durationMinutes", e."openAt", e."setterId", e."createdAt", e."updatedAt"
       FROM "Exam" e
       WHERE 1=1 ${submittedExamIdsQuery}
-      ORDER BY e.created_at DESC;
+      ORDER BY e."createdAt" DESC;
     `, queryParams);
 
     const appExams: Exam[] = [];
     for (const examRow of examsResult.rows) {
       const questionsResult = await query(`
-        SELECT q.id, q.text, q.type, q.points, q.correct_answer, q.exam_id, q.created_at, q.updated_at
+        SELECT q.id, q.text, q.type, q.points, q."correctAnswer", q."examId", q."createdAt", q."updatedAt"
         FROM "Question" q
-        WHERE q.exam_id = $1
-        ORDER BY q.created_at ASC;
+        WHERE q."examId" = $1
+        ORDER BY q."createdAt" ASC;
       `, [examRow.id]);
       
       const questions: Question[] = [];
       for (const qRow of questionsResult.rows) {
-        const optionsResult = await query('SELECT id, text, question_id FROM "QuestionOption" WHERE question_id = $1 ORDER BY created_at ASC', [qRow.id]);
+        const optionsResult = await query('SELECT id, text, "questionId" FROM "QuestionOption" WHERE "questionId" = $1 ORDER BY "createdAt" ASC', [qRow.id]);
         const options = optionsResult.rows.map(mapDbRowToAppOption);
         questions.push(mapDbRowToAppQuestion(qRow, options));
       }
@@ -339,24 +315,24 @@ export async function listAllExamsForSetterAction(setterId: string): Promise<{ s
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const examsResult = await query(`
-      SELECT id, title, description, passcode, duration_minutes, open_at, setter_id, created_at, updated_at
+      SELECT id, title, description, passcode, "durationMinutes", "openAt", "setterId", "createdAt", "updatedAt"
       FROM "Exam"
-      WHERE setter_id = $1
-      ORDER BY created_at DESC;
+      WHERE "setterId" = $1
+      ORDER BY "createdAt" DESC;
     `, [setterId]);
 
     const appExams: Exam[] = [];
     for (const examRow of examsResult.rows) {
       const questionsResult = await query(`
-        SELECT q.id, q.text, q.type, q.points, q.correct_answer, q.exam_id, q.created_at, q.updated_at
+        SELECT q.id, q.text, q.type, q.points, q."correctAnswer", q."examId", q."createdAt", q."updatedAt"
         FROM "Question" q
-        WHERE q.exam_id = $1
-        ORDER BY q.created_at ASC;
+        WHERE q."examId" = $1
+        ORDER BY q."createdAt" ASC;
       `, [examRow.id]);
       
       const questions: Question[] = [];
       for (const qRow of questionsResult.rows) {
-        const optionsResult = await query('SELECT id, text, question_id FROM "QuestionOption" WHERE question_id = $1 ORDER BY created_at ASC', [qRow.id]);
+        const optionsResult = await query('SELECT id, text, "questionId" FROM "QuestionOption" WHERE "questionId" = $1 ORDER BY "createdAt" ASC', [qRow.id]);
         const options = optionsResult.rows.map(mapDbRowToAppOption);
         questions.push(mapDbRowToAppQuestion(qRow, options));
       }
@@ -373,7 +349,7 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const examResult = await query(`
-      SELECT id, title, description, passcode, duration_minutes, open_at, setter_id, created_at, updated_at
+      SELECT id, title, description, passcode, "durationMinutes", "openAt", "setterId", "createdAt", "updatedAt"
       FROM "Exam"
       WHERE id = $1;
     `, [id]);
@@ -384,15 +360,15 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
     const examRow = examResult.rows[0];
 
     const questionsResult = await query(`
-      SELECT q.id, q.text, q.type, q.points, q.correct_answer, q.exam_id, q.created_at, q.updated_at
+      SELECT q.id, q.text, q.type, q.points, q."correctAnswer", q."examId", q."createdAt", q."updatedAt"
       FROM "Question" q
-      WHERE q.exam_id = $1
-      ORDER BY q.created_at ASC;
+      WHERE q."examId" = $1
+      ORDER BY q."createdAt" ASC;
     `, [id]);
     
     const questions: Question[] = [];
     for (const qRow of questionsResult.rows) {
-      const optionsResult = await query('SELECT id, text, question_id FROM "QuestionOption" WHERE question_id = $1 ORDER BY created_at ASC', [qRow.id]);
+      const optionsResult = await query('SELECT id, text, "questionId" FROM "QuestionOption" WHERE "questionId" = $1 ORDER BY "createdAt" ASC', [qRow.id]);
       const options = optionsResult.rows.map(mapDbRowToAppOption);
       questions.push(mapDbRowToAppQuestion(qRow, options));
     }
@@ -408,7 +384,7 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
 export async function verifyPasscodeAction(examId: string, passcode: string): Promise<{ success: boolean; message?: string; examOpenAt?: Date | null }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
-    const result = await query('SELECT passcode, open_at FROM "Exam" WHERE id = $1', [examId]);
+    const result = await query('SELECT passcode, "openAt" FROM "Exam" WHERE id = $1', [examId]);
     if (result.rows.length === 0) {
       return { success: false, message: "Exam not found." };
     }
@@ -416,7 +392,7 @@ export async function verifyPasscodeAction(examId: string, passcode: string): Pr
     if (exam.passcode !== passcode) {
       return { success: false, message: "Incorrect passcode." };
     }
-    return { success: true, examOpenAt: exam.open_at ? new Date(exam.open_at) : null };
+    return { success: true, examOpenAt: exam.openAt ? new Date(exam.openAt) : null };
   } catch (error) {
     console.error("Error verifying passcode (raw SQL):", error);
     return { success: false, message: "Error during passcode verification." };
@@ -450,13 +426,13 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
       return { success: false, message: "Invalid taker." };
     }
 
-    const examDetailsResult = await client.query('SELECT open_at FROM "Exam" WHERE id = $1', [parsed.data.examId]);
-    if (examDetailsResult.rows.length > 0 && examDetailsResult.rows[0].open_at && new Date() < new Date(examDetailsResult.rows[0].open_at)) {
+    const examDetailsResult = await client.query('SELECT "openAt" FROM "Exam" WHERE id = $1', [parsed.data.examId]);
+    if (examDetailsResult.rows.length > 0 && examDetailsResult.rows[0].openAt && new Date() < new Date(examDetailsResult.rows[0].openAt)) {
       await client.query('ROLLBACK');
       return { success: false, message: "This exam is not yet open for submission." };
     }
 
-    const existingSubmissionResult = await client.query('SELECT id FROM "UserSubmission" WHERE exam_id = $1 AND taker_id = $2', [
+    const existingSubmissionResult = await client.query('SELECT id FROM "UserSubmission" WHERE "examId" = $1 AND "takerId" = $2', [
       parsed.data.examId, parsed.data.takerId
     ]);
     if (existingSubmissionResult.rows.length > 0) {
@@ -465,15 +441,15 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
     }
 
     const submissionInsertResult = await client.query(
-      'INSERT INTO "UserSubmission" (exam_id, taker_id, submitted_at, created_at, updated_at, is_evaluated) VALUES ($1, $2, NOW(), NOW(), NOW(), FALSE) RETURNING id',
+      'INSERT INTO "UserSubmission" ("examId", "takerId", "submittedAt", "createdAt", "updatedAt", "isEvaluated") VALUES ($1, $2, NOW(), NOW(), NOW(), FALSE) RETURNING id',
       [parsed.data.examId, parsed.data.takerId]
     );
     const submissionId = submissionInsertResult.rows[0].id;
 
     for (const ans of parsed.data.answers) {
       await client.query(
-        'INSERT INTO "UserAnswer" (submission_id, question_id, answer, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())',
-        [submissionId, ans.questionId, JSON.stringify(ans.answer)] // Store answer as JSON string for flexibility
+        'INSERT INTO "UserAnswer" ("submissionId", "questionId", answer, "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW())',
+        [submissionId, ans.questionId, JSON.stringify(ans.answer)] 
       );
     }
 
@@ -496,28 +472,22 @@ export async function deleteExamAction(examId: string): Promise<{ success: boole
   try {
     await client.query('BEGIN');
 
-    // Order of deletion matters due to foreign key constraints
-    // 1. UserAnswers related to submissions for this exam
     await client.query(`
       DELETE FROM "UserAnswer" ua
       USING "UserSubmission" us
-      WHERE ua.submission_id = us.id AND us.exam_id = $1;
+      WHERE ua."submissionId" = us.id AND us."examId" = $1;
     `, [examId]);
 
-    // 2. UserSubmissions for this exam
-    await client.query('DELETE FROM "UserSubmission" WHERE exam_id = $1;', [examId]);
+    await client.query('DELETE FROM "UserSubmission" WHERE "examId" = $1;', [examId]);
 
-    // 3. QuestionOptions for questions in this exam
     await client.query(`
       DELETE FROM "QuestionOption" qo
       USING "Question" q
-      WHERE qo.question_id = q.id AND q.exam_id = $1;
+      WHERE qo."questionId" = q.id AND q."examId" = $1;
     `, [examId]);
     
-    // 4. Questions for this exam
-    await client.query('DELETE FROM "Question" WHERE exam_id = $1;', [examId]);
+    await client.query('DELETE FROM "Question" WHERE "examId" = $1;', [examId]);
 
-    // 5. Finally, the Exam itself
     const deleteExamResult = await client.query('DELETE FROM "Exam" WHERE id = $1 RETURNING id;', [examId]);
 
     await client.query('COMMIT');
@@ -540,11 +510,11 @@ export async function getExamSubmissionsForEvaluationAction(examId: string): Pro
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const result = await query(`
-      SELECT us.id as submission_id, us.taker_id, u.email, us.submitted_at, us.is_evaluated, us.evaluated_score
+      SELECT us.id as submission_id, us."takerId", u.email, us."submittedAt", us."isEvaluated", us."evaluatedScore"
       FROM "UserSubmission" us
-      JOIN "User" u ON us.taker_id = u.id
-      WHERE us.exam_id = $1
-      ORDER BY us.submitted_at DESC;
+      JOIN "User" u ON us."takerId" = u.id
+      WHERE us."examId" = $1
+      ORDER BY us."submittedAt" DESC;
     `, [examId]);
 
     if (result.rows.length === 0) {
@@ -553,11 +523,11 @@ export async function getExamSubmissionsForEvaluationAction(examId: string): Pro
     
     const submissionsList: SubmissionInfo[] = result.rows.map(row => ({
       submissionId: row.submission_id,
-      takerId: row.taker_id,
+      takerId: row.takerId, // Kept takerId as it was
       email: row.email,
-      submittedAt: new Date(row.submitted_at),
-      isEvaluated: row.is_evaluated,
-      evaluatedScore: row.evaluated_score,
+      submittedAt: new Date(row.submittedAt), // Kept submittedAt as it was
+      isEvaluated: row.isEvaluated, // Kept isEvaluated as it was
+      evaluatedScore: row.evaluatedScore, // Kept evaluatedScore as it was
     }));
     return { success: true, submissions: submissionsList };
   } catch (error) {
@@ -571,12 +541,12 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
   try {
     const submissionResult = await query(`
       SELECT 
-        us.id as submission_id, us.exam_id, us.is_evaluated, us.evaluated_score,
+        us.id as submission_id, us."examId", us."isEvaluated", us."evaluatedScore",
         u.email as taker_email,
         e.title as exam_title
       FROM "UserSubmission" us
-      JOIN "User" u ON us.taker_id = u.id
-      JOIN "Exam" e ON us.exam_id = e.id
+      JOIN "User" u ON us."takerId" = u.id
+      JOIN "Exam" e ON us."examId" = e.id
       WHERE us.id = $1;
     `, [submissionId]);
 
@@ -586,27 +556,25 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
     const subData = submissionResult.rows[0];
 
     const questionsResult = await query(`
-      SELECT q.id, q.text, q.type, q.points, q.correct_answer, ua.answer as user_answer, ua.awarded_marks, ua.feedback
+      SELECT q.id, q.text, q.type, q.points, q."correctAnswer", ua.answer as user_answer, ua."awardedMarks", ua.feedback
       FROM "Question" q
-      LEFT JOIN "UserAnswer" ua ON q.id = ua.question_id AND ua.submission_id = $1
-      WHERE q.exam_id = $2
-      ORDER BY q.created_at ASC;
-    `, [submissionId, subData.exam_id]);
+      LEFT JOIN "UserAnswer" ua ON q.id = ua."questionId" AND ua."submissionId" = $1
+      WHERE q."examId" = $2
+      ORDER BY q."createdAt" ASC;
+    `, [submissionId, subData.examId]); // Kept examId as it was
 
     const mappedQuestions: SubmissionForEvaluation['questions'] = [];
     for (const qRow of questionsResult.rows) {
-      const optionsResult = await query('SELECT id, text, question_id FROM "QuestionOption" WHERE question_id = $1 ORDER BY created_at ASC', [qRow.id]);
+      const optionsResult = await query('SELECT id, text, "questionId" FROM "QuestionOption" WHERE "questionId" = $1 ORDER BY "createdAt" ASC', [qRow.id]);
       const options = optionsResult.rows.map(mapDbRowToAppOption);
       
       let userAnswerFromJson = qRow.user_answer;
       try {
-        // UserAnswer.answer is stored as JSON string, parse it back
         if (typeof qRow.user_answer === 'string') {
           userAnswerFromJson = JSON.parse(qRow.user_answer);
         }
       } catch (e) {
         console.warn(`Could not parse user answer JSON for QID ${qRow.id}: ${qRow.user_answer}`, e);
-        // Keep as string if parsing fails, or handle as error
       }
 
       mappedQuestions.push({
@@ -615,9 +583,9 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
         type: qRow.type as AppQuestionType,
         points: qRow.points,
         options: options,
-        correctAnswer: qRow.correct_answer ?? undefined,
+        correctAnswer: qRow.correctAnswer ?? undefined, // Kept correctAnswer as it was
         userAnswer: userAnswerFromJson,
-        awardedMarks: qRow.awarded_marks,
+        awardedMarks: qRow.awardedMarks, // Kept awardedMarks as it was
         feedback: qRow.feedback,
       });
     }
@@ -626,10 +594,10 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
       submissionId: subData.submission_id,
       takerEmail: subData.taker_email,
       examTitle: subData.exam_title,
-      examId: subData.exam_id,
+      examId: subData.examId, // Kept examId as it was
       questions: mappedQuestions,
-      isEvaluated: subData.is_evaluated,
-      evaluatedScore: subData.evaluated_score,
+      isEvaluated: subData.isEvaluated, // Kept isEvaluated as it was
+      evaluatedScore: subData.evaluatedScore, // Kept evaluatedScore as it was
     };
     return { success: true, submission: mappedSubmissionData };
 
@@ -651,23 +619,37 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
 
     for (const evalAns of evaluatedAnswers) {
       const updateAnswerResult = await client.query(
-        'UPDATE "UserAnswer" SET awarded_marks = $1, feedback = $2, updated_at = NOW() WHERE submission_id = $3 AND question_id = $4',
+        'UPDATE "UserAnswer" SET "awardedMarks" = $1, feedback = $2, "updatedAt" = NOW() WHERE "submissionId" = $3 AND "questionId" = $4',
         [evalAns.awardedMarks, evalAns.feedback, submissionId, evalAns.questionId]
       );
       if (updateAnswerResult.rowCount === 0) {
-        throw new Error(`No UserAnswer found for submissionId ${submissionId} and questionId ${evalAns.questionId} to update.`);
+        // Check if the UserAnswer record exists before trying to update
+        const checkExistence = await client.query('SELECT id FROM "UserAnswer" WHERE "submissionId" = $1 AND "questionId" = $2', [submissionId, evalAns.questionId]);
+        if (checkExistence.rowCount === 0) {
+             // If it doesn't exist, it means the student might not have answered this question.
+             // Depending on requirements, we might want to insert a record or skip.
+             // For now, let's assume an answer record should exist if we are evaluating it.
+             // This might indicate an issue if the student didn't answer but we still try to save marks.
+             // For now, we'll insert if not found - assuming evaluation means it's relevant.
+            await client.query(
+              'INSERT INTO "UserAnswer" ("submissionId", "questionId", "awardedMarks", feedback, "createdAt", "updatedAt", answer) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5)',
+              [submissionId, evalAns.questionId, evalAns.awardedMarks, evalAns.feedback, JSON.stringify(null)] // Store null as answer if one wasn't present
+            );
+        } else {
+          // If it exists but update didn't affect rows, something else is wrong, but less likely
+           console.warn(`UserAnswer for submissionId ${submissionId} and questionId ${evalAns.questionId} exists but was not updated. This should not happen.`);
+        }
       }
     }
 
     await client.query(
-      'UPDATE "UserSubmission" SET evaluated_score = $1, is_evaluated = TRUE, updated_at = NOW() WHERE id = $2',
+      'UPDATE "UserSubmission" SET "evaluatedScore" = $1, "isEvaluated" = TRUE, "updatedAt" = NOW() WHERE id = $2',
       [totalScore, submissionId]
     );
     
     await client.query('COMMIT');
     dbSuccess = true;
 
-    // Save to Firebase Realtime Database
     const evaluationDataForFirebase = {
         totalScore: totalScore,
         isEvaluated: true,
@@ -702,11 +684,11 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const result = await query(`
-      SELECT u.email, us.submitted_at
+      SELECT u.email, us."submittedAt"
       FROM "UserSubmission" us
-      JOIN "User" u ON us.taker_id = u.id
-      WHERE us.exam_id = $1
-      ORDER BY us.submitted_at DESC;
+      JOIN "User" u ON us."takerId" = u.id
+      WHERE us."examId" = $1
+      ORDER BY us."submittedAt" DESC;
     `, [examId]);
 
     if (result.rows.length === 0) {
@@ -715,7 +697,7 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
 
     const attendeesList: Array<{email: string, submittedAt: Date}> = result.rows.map(row => ({
       email: row.email,
-      submittedAt: new Date(row.submitted_at),
+      submittedAt: new Date(row.submittedAt), // Kept submittedAt as it was
     }));
 
     return { success: true, attendees: attendeesList };
@@ -725,3 +707,4 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
+

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview AI flow to automatically evaluate exam submissions.
@@ -37,7 +38,7 @@ const QuestionDetailSchema = z.object({
   optionsText: z.array(z.string()).optional(), // Prepared by server action
   correctAnswerText: z.string().optional(), // Prepared by server action
 });
-export const AutoEvaluateSubmissionInputSchema = z.object({
+const AutoEvaluateSubmissionInputSchema = z.object({
   questions: z.array(QuestionDetailSchema).describe("An array of question details from the submission to be evaluated."),
 });
 export type AutoEvaluateSubmissionInput = z.infer<typeof AutoEvaluateSubmissionInputSchema>;
@@ -49,7 +50,7 @@ const EvaluatedAnswerSchema = z.object({
   awardedMarks: z.number(),
   feedback: z.string(),
 });
-export const AutoEvaluateSubmissionOutputSchema = z.object({
+const AutoEvaluateSubmissionOutputSchema = z.object({
   evaluatedAnswers: z.array(EvaluatedAnswerSchema).describe("An array of AI-evaluated answers, each with marks and feedback."),
   totalScore: z.number().describe("The total score calculated from all awarded marks."),
 });

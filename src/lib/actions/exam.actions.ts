@@ -316,7 +316,20 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
 
 export async function listExamsAction(takerId?: string): Promise<{ success: boolean; exams?: Exam[]; message?: string }> {
   await new Promise(resolve => setTimeout(resolve, 500));
+  let takerEmail: string | undefined;
+
   try {
+    if (takerId) {
+      const userEmailResult = await query('SELECT "email" FROM "User" WHERE "id" = $1', [takerId]);
+      if (userEmailResult.rows.length > 0) {
+        takerEmail = userEmailResult.rows[0].email;
+      } else {
+        // This means the takerId provided is invalid, so treat as if no takerId was given for filtering purposes,
+        // or return an error. For listing, it's probably safer to show public exams.
+        console.warn(`listExamsAction: Taker ID ${takerId} not found. Proceeding without email-specific filtering.`);
+      }
+    }
+
     let submittedExamIdsQuery = '';
     const queryParams: string[] = [];
     if (takerId) {
@@ -333,6 +346,16 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
 
     const appExams: Exam[] = [];
     for (const examRow of examsResult.rows) {
+      const allowedEmailsResult = await query('SELECT "takerEmail" FROM "ExamAllowedTaker" WHERE "examId" = $1', [examRow.id]);
+      const allowedEmails = allowedEmailsResult.rows.map(r => r.takerEmail);
+
+      if (takerEmail && allowedEmails.length > 0) {
+        if (!allowedEmails.includes(takerEmail)) {
+          continue; // Skip this exam if the taker's email is not in the allowed list
+        }
+      }
+      // If no takerEmail (anonymous or bad ID) or if allowedEmails is empty (public exam), proceed
+
       const questionsResult = await query(`
         SELECT q."id", q."text", q."type", q."points", q."correctAnswer", q."examId", q."createdAt", q."updatedAt"
         FROM "Question" q
@@ -346,9 +369,7 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
         const options = optionsResult.rows.map(mapDbRowToAppOption);
         questions.push(mapDbRowToAppQuestion(qRow, options));
       }
-      const allowedEmailsResult = await query('SELECT "takerEmail" FROM "ExamAllowedTaker" WHERE "examId" = $1', [examRow.id]);
-      const allowedEmails = allowedEmailsResult.rows.map(r => r.takerEmail);
-
+      
       appExams.push(mapDbRowToAppExam(examRow, questions, allowedEmails.length > 0 ? allowedEmails : undefined));
     }
     return { success: true, exams: appExams };
@@ -434,7 +455,7 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
   }
 }
 
-export async function verifyPasscodeAction(examId: string, passcode: string): Promise<{ success: boolean; message?: string; examOpenAt?: Date | null }> {
+export async function verifyPasscodeAction(examId: string, passcode: string, takerId: string): Promise<{ success: boolean; message?: string; examOpenAt?: Date | null }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
     const result = await query('SELECT "passcode", "openAt" FROM "Exam" WHERE "id" = $1', [examId]);
@@ -445,6 +466,25 @@ export async function verifyPasscodeAction(examId: string, passcode: string): Pr
     if (exam.passcode !== passcode) {
       return { success: false, message: "Incorrect passcode." };
     }
+    if (exam["openAt"] && new Date() < new Date(exam["openAt"])) {
+      return { success: false, message: `This exam is scheduled to open on ${new Date(exam["openAt"]).toLocaleString()}.`, examOpenAt: new Date(exam["openAt"]) };
+    }
+
+    // Check if this taker is allowed
+    const allowedEmailsResult = await query('SELECT "takerEmail" FROM "ExamAllowedTaker" WHERE "examId" = $1', [examId]);
+    const allowedEmails = allowedEmailsResult.rows.map(r => r.takerEmail);
+
+    if (allowedEmails.length > 0) {
+      const userEmailResult = await query('SELECT "email" FROM "User" WHERE "id" = $1', [takerId]);
+      if (userEmailResult.rows.length === 0) {
+        return { success: false, message: "Authentication error: Taker details not found." };
+      }
+      const takerEmail = userEmailResult.rows[0].email;
+      if (!allowedEmails.includes(takerEmail)) {
+        return { success: false, message: "You are not authorized to access this exam with your email." };
+      }
+    }
+
     return { success: true, examOpenAt: exam["openAt"] ? new Date(exam["openAt"]) : null };
   } catch (error) {
     console.error("Error verifying passcode (raw SQL):", error);

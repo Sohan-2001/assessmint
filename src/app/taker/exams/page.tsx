@@ -28,16 +28,19 @@ export default function AvailableExamsPage() {
   const { userId, isLoading: isAuthLoading } = useAuth(); // Get userId and auth loading state
 
   const fetchExams = useCallback(async () => {
-    if (!userId && !isAuthLoading) { // Only fetch if userId is available or auth is no longer loading
-        setIsLoading(false); // Potentially set error or handle no user state
+    if (!userId && !isAuthLoading) { 
+        setIsLoading(false); 
+        // Optionally set an error or a message like "Please sign in to view exams"
+        // For now, it will show "No exams available" if userId is null and not loading.
+        setExams([]);
+        setFilteredExams([]);
         return;
     }
     if (isAuthLoading) return; // Wait for auth to load
 
     setIsLoading(true);
     setError(null);
-    // Pass takerId to listExamsAction
-    const result = await listExamsAction(userId || undefined); // Pass userId or undefined
+    const result = await listExamsAction(userId || undefined); 
     if (result.success && result.exams) {
       setExams(result.exams);
       setFilteredExams(result.exams);
@@ -46,7 +49,7 @@ export default function AvailableExamsPage() {
       toast({ title: "Error", description: result.message || "Failed to load exams.", variant: "destructive" });
     }
     setIsLoading(false);
-  }, [toast, userId, isAuthLoading]); // Add userId and isAuthLoading to dependencies
+  }, [toast, userId, isAuthLoading]); 
 
   useEffect(() => {
     fetchExams();
@@ -76,9 +79,13 @@ export default function AvailableExamsPage() {
   };
 
   const handlePasscodeSubmit = async (passcode: string) => {
-    if (!selectedExam) return false;
+    if (!selectedExam || !userId) { // Ensure userId is available
+        toast({ title: "Error", description: "User not authenticated or exam not selected.", variant: "destructive" });
+        return false;
+    }
 
-    const result = await verifyPasscodeAction(selectedExam.id, passcode);
+    // Pass takerId to verifyPasscodeAction
+    const result = await verifyPasscodeAction(selectedExam.id, passcode, userId);
     if (result.success) {
       if (result.examOpenAt && new Date() < new Date(result.examOpenAt)) {
         toast({
@@ -92,12 +99,12 @@ export default function AvailableExamsPage() {
       router.push(`/taker/exam/${selectedExam.id}`);
       return true;
     } else {
-      toast({ title: "Error", description: result.message || "Invalid passcode.", variant: "destructive" });
+      toast({ title: "Error", description: result.message || "Invalid passcode or access denied.", variant: "destructive" });
       return false;
     }
   };
 
-  if (isLoading || isAuthLoading) { // Consider auth loading state as well
+  if (isLoading || isAuthLoading) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 md:h-12 md:w-12 animate-spin text-primary" />
@@ -137,7 +144,7 @@ export default function AvailableExamsPage() {
         <div className="text-center py-10">
           <ListChecks className="h-12 w-12 md:h-16 md:w-16 text-muted-foreground mx-auto mb-4" />
           <p className="text-base md:text-xl text-muted-foreground">
-            {searchTerm ? "No exams match your search." : "No exams available at the moment or you have completed all assigned exams. Please check back later."}
+            {searchTerm ? "No exams match your search." : (userId ? "No exams available for you at the moment, or you have completed all assigned exams. Please check back later." : "Please sign in to view available exams.")}
           </p>
         </div>
       ) : (
@@ -159,3 +166,4 @@ export default function AvailableExamsPage() {
     </div>
   );
 }
+

@@ -9,7 +9,7 @@ import { SyllabusToQuestionsForm } from "@/components/setter/SyllabusToQuestions
 import { useAiPanel } from "@/contexts/AiPanelContext";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Role } from "@/lib/types"; // Import Role enum
+import { Role } from "@/lib/types"; 
 
 // PanelBodyContent remains a shared component for the form area
 const PanelBodyContent = () => (
@@ -31,13 +31,13 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log("SetterLayout Auth Check -> isLoading:", isAuthLoading, "isAuthenticated:", isAuthenticated, "userRole:", userRole);
-    if (!isAuthLoading && (!isAuthenticated || userRole !== Role.SETTER)) { // Use Role.SETTER
+    if (!isAuthLoading && (!isAuthenticated || userRole !== Role.SETTER)) { 
       console.log("SetterLayout: Redirecting to /setter-sign-in based on auth state (Role mismatch or not authenticated). Current role:", userRole);
       router.push("/setter-sign-in");
     }
   }, [isAuthenticated, userRole, isAuthLoading, router]);
 
-  if (isAuthLoading || !isAuthenticated || userRole !== Role.SETTER || isMobile === undefined) { // Use Role.SETTER
+  if (isAuthLoading || !isAuthenticated || userRole !== Role.SETTER || isMobile === undefined) { 
     console.log("SetterLayout: Displaying Loader. isAuthLoading:", isAuthLoading, "isAuthenticated:", isAuthenticated, "userRole:", userRole, "isMobile:", isMobile);
     return (
       <div className="flex h-screen items-center justify-center">
@@ -49,7 +49,7 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
   console.log("SetterLayout: Rendering content for authenticated setter.");
 
   return (
-    <div className={`flex h-screen ${isMobile ? 'flex-col' : 'flex-row'}`}>
+    <div className={`flex h-full ${isMobile ? 'flex-col' : 'flex-row'}`}> {/* Changed h-screen to h-full */}
       
       {/* AI Panel - Mobile (Top, Resizable Vertically) */}
       {isAiPanelOpen && isMobile && (

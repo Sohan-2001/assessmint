@@ -1,99 +1,21 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-generator client {
-  provider = "prisma-client-js"
-}
+// This file is intentionally left almost empty to signify that Prisma is no longer
+// being used for database schema management or as an ORM in this project.
+// Database interactions are now handled directly via the 'pg' library (node-postgres)
+// connected to Neon PostgreSQL.
+
+// The SQL DDL for table creation can be found in `schema.sql`.
+// You need to run the DDL statements in `schema.sql` directly against your NeonDB
+// (e.g., using the Neon SQL Editor or a SQL client) to set up the database tables.
+
+// If you decide to reintroduce Prisma in the future, you would populate this file
+// with your Prisma schema definition.
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  // directUrl = env("DIRECT_URL") // Removed as per user's setup
+  provider = "postgresql" // This is just a placeholder
+  url      = env("DATABASE_URL") // This is just a placeholder
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  exams       Exam[]
-  submissions UserSubmission[]
-}
-
-enum Role {
-  SETTER
-  TAKER
-}
-
-model Exam {
-  id              String    @id @default(cuid())
-  title           String
-  description     String?
-  passcode        String
-  setterId        String
-  user            User      @relation(fields: [setterId], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  durationMinutes Int?
-  openAt          DateTime?
-
-  questions   Question[]
-  submissions UserSubmission[]
-}
-
-model Question {
-  id            String    @id @default(cuid())
-  text          String
-  type          QuestionType
-  correctAnswer String?
-  points        Int
-  examId        String
-  exam          Exam      @relation(fields: [examId], references: [id])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  options QuestionOption[]
-  answers UserAnswer[]
-}
-
-model QuestionOption {
-  id         String   @id @default(cuid())
-  text       String
-  questionId String
-  question   Question @relation(fields: [questionId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-enum QuestionType {
-  MULTIPLE_CHOICE
-  SHORT_ANSWER
-  ESSAY
-}
-
-model UserSubmission {
-  id          String   @id @default(cuid())
-  examId      String
-  exam        Exam     @relation(fields: [examId], references: [id])
-  takerId     String
-  taker       User     @relation(fields: [takerId], references: [id])
-  submittedAt DateTime @default(now())
-  score       Int?
-
-  answers UserAnswer[]
-}
-
-model UserAnswer {
-  id           String   @id @default(cuid())
-  submissionId String
-  submission   UserSubmission @relation(fields: [submissionId], references: [id])
-  questionId   String
-  question     Question @relation(fields: [questionId], references: [id])
-  answer       Json // Can be string (MCQ option ID, short answer) or string[] (for future multi-select)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+generator client {
+  provider = "prisma-client-js" // This is just a placeholder
 }

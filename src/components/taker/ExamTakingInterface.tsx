@@ -332,8 +332,8 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
 
 
   return (
-    <div ref={examInterfaceRef} className="max-w-3xl mx-auto">
-      <Card className="shadow-xl">
+    <div ref={examInterfaceRef} className="max-w-3xl mx-auto bg-background"> {/* Ensure background for fullscreen */}
+      <Card className="shadow-xl min-h-screen flex flex-col"> {/* Ensure card takes full height */}
         <CardHeader className="border-b">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-0">
             <CardTitle className="text-2xl md:text-3xl font-headline text-primary">{exam.title}</CardTitle>
@@ -353,7 +353,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
         </CardHeader>
 
         {isPaused ? (
-          <CardContent className="py-10 px-4 md:px-6 text-center">
+          <CardContent className="flex-grow flex flex-col items-center justify-center py-10 px-4 md:px-6 text-center">
             <PauseOctagon className="h-16 w-16 text-primary mx-auto mb-4" />
             <h2 className="text-xl md:text-2xl font-semibold text-foreground mb-2">Exam Paused</h2>
             <p className="text-muted-foreground mb-6">Your progress is saved. Click "Resume" to continue.</p>
@@ -363,7 +363,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
           </CardContent>
         ) : (
           <>
-            <CardContent className="py-6 px-4 md:px-6 space-y-6">
+            <CardContent className="flex-grow py-6 px-4 md:px-6 space-y-6">
               <div className="space-y-1">
                 <div className="flex justify-between text-xs md:text-sm text-muted-foreground mb-1">
                   <span>Question {currentQuestionIndex + 1} of {exam.questions.length}</span>
@@ -381,7 +381,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
               </Card>
             </CardContent>
 
-            <CardFooter className="flex justify-between border-t pt-6">
+            <CardFooter className="flex justify-between border-t pt-6 mt-auto"> {/* mt-auto for footer stickiness */}
               <Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0 || isLoading || forceSubmitted} className="text-sm md:text-base">
                 Previous
               </Button>
@@ -396,7 +396,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
                       <Send className="mr-2 h-4 w-4" /> Submit Exam
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent container={examInterfaceRef.current}>
                     <AlertDialogHeader>
                       <AlertDialogTitle className="font-headline text-lg md:text-xl">Confirm Submission</AlertDialogTitle>
                       <AlertDialogDescription className="text-sm md:text-base">

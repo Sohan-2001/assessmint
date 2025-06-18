@@ -2,9 +2,10 @@
 "use server";
 
 import { z } from "zod";
-import { query } from "@/lib/db"; // Use new db utility
+import { query } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { Role } from "@/lib/types"; // Use local Role enum
+import { Role } from "@/lib/types";
+import { v4 as uuidv4 } from 'uuid'; // Import uuid
 
 // Define return type for consistency
 type AuthResponse = {
@@ -69,6 +70,8 @@ export async function signInAction(
     const user = userResult.rows[0];
     console.log("Sign-in Action: User found. DB Role:", user.role, "Input Role:", values.role);
     console.log("Sign-in Action: Input password length:", values.password.length);
+    if(user.password) console.log("Sign-in Action: DB password hash snippet:", user.password.substring(0,10) + "...");
+
 
     if (user.role !== values.role) {
       console.log("Sign-in Action: Role mismatch.");
@@ -93,11 +96,11 @@ export async function signInAction(
     return {
       success: true,
       message: "Signed in successfully!",
-      role: user.role, // This will be 'SETTER' or 'TAKER' as stored in DB
+      role: user.role, 
       userId: user.id,
     };
   } catch (error) {
-    console.error("SIGN_IN_ACTION_ERROR: An error occurred during sign-in.");
+    console.error("SIGN_IN_ACTION_ERROR --- Start of Error Details ---");
     if (error instanceof Error) {
       console.error("Error Name:", error.name);
       console.error("Error Message:", error.message);
@@ -108,6 +111,7 @@ export async function signInAction(
     } else {
       console.error("Caught error is not an instance of Error. Raw error:", error);
     }
+    console.error("SIGN_IN_ACTION_ERROR --- End of Error Details ---");
     
     return {
       success: false,
@@ -136,11 +140,12 @@ export async function signUpAction(
     }
 
     const hashedPassword = await bcrypt.hash(values.password, 10);
-    console.log("Sign-up Action: Password hashed. Attempting to create user.");
+    const newUserId = uuidv4(); // Generate a new UUID for the user
+    console.log("Sign-up Action: Password hashed. New User ID:", newUserId, ". Attempting to create user.");
 
     const newUserResult = await query(
-      'INSERT INTO "User" (email, password, role, "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW()) RETURNING id, role',
-      [values.email, hashedPassword, values.role],
+      'INSERT INTO "User" (id, email, password, role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id, role',
+      [newUserId, values.email, hashedPassword, values.role], // Pass the newUserId
     );
 
     if (newUserResult.rows.length === 0) {
@@ -153,7 +158,7 @@ export async function signUpAction(
     return {
       success: true,
       message: "Account created successfully! Please sign in.",
-      role: newUser.role, // This will be 'SETTER' or 'TAKER'
+      role: newUser.role,
       userId: newUser.id,
     };
   } catch (error) {

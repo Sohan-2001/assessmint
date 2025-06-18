@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -20,7 +21,7 @@ body {
     --secondary-foreground: 222 47% 11%;
     --muted: 220 15% 90%;
     --muted-foreground: 220 10% 45%;
-    --accent: 187 100% 42%; /* Bright cyan #00BCD4 */
+    --accent: 270 50% 40%; /* Dark Purple */
     --accent-foreground: 0 0% 98%; /* White */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -39,8 +40,8 @@ body {
     --sidebar-foreground: 222 47% 11%; /* Card foreground */
     --sidebar-primary: 231 48% 48%; /* Main primary */
     --sidebar-primary-foreground: 0 0% 98%; /* Main primary-foreground */
-    --sidebar-accent: 187 100% 42%; /* Main accent */
-    --sidebar-accent-foreground: 0 0% 98%; /* Main accent-foreground */
+    --sidebar-accent: 270 50% 40%; /* Main accent (Dark Purple) */
+    --sidebar-accent-foreground: 0 0% 98%; /* Main accent-foreground (White) */
     --sidebar-border: 220 13% 85%; /* Main border */
     --sidebar-ring: 231 48% 48%; /* Main ring */
   }
@@ -58,8 +59,8 @@ body {
     --secondary-foreground: 0 0% 98%;
     --muted: 220 15% 20%;
     --muted-foreground: 220 10% 65%;
-    --accent: 187 80% 60%; /* Lighter cyan */
-    --accent-foreground: 222 47% 11%; /* Dark text on light cyan */
+    --accent: 270 60% 70%; /* Lighter Purple */
+    --accent-foreground: 222 47% 11%; /* Dark text on light purple */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 15% 25%;
@@ -76,8 +77,8 @@ body {
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 231 48% 75%; /* Dark theme primary */
     --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 187 80% 60%; /* Dark theme accent */
-    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-accent: 270 60% 70%; /* Dark theme accent (Lighter Purple) */
+    --sidebar-accent-foreground: 222 47% 11%; /* Dark text for light purple */
     --sidebar-border: 220 15% 25%;
     --sidebar-ring: 231 48% 75%;
   }

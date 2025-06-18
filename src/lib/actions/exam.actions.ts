@@ -4,19 +4,19 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { Exam as PrismaExam, Question as PrismaQuestion, QuestionOption as PrismaQuestionOption, QuestionType as PrismaQuestionType, UserAnswer as PrismaUserAnswer } from "@prisma/client";
-import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation } from "@/lib/types"; 
+import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation } from "@/lib/types";
 
 const questionOptionSchemaClient = z.object({
-  id: z.string().optional(), 
+  id: z.string().optional(),
   text: z.string().min(1, "Option text cannot be empty"),
 });
 
 const questionSchemaClient = z.object({
-  id: z.string().optional(), 
+  id: z.string().optional(),
   text: z.string().min(1, "Question text cannot be empty"),
-  type: z.enum(["MULTIPLE_CHOICE", "SHORT_ANSWER", "ESSAY"]), 
+  type: z.enum(["MULTIPLE_CHOICE", "SHORT_ANSWER", "ESSAY"]),
   options: z.array(questionOptionSchemaClient).optional(),
-  correctAnswer: z.string().optional(), 
+  correctAnswer: z.string().optional(),
   points: z.coerce.number().min(0, "Points must be a non-negative number"),
 });
 
@@ -39,33 +39,33 @@ const createExamActionPayloadSchema = examPayloadSchema.extend({
 function mapPrismaExamToAppExam(prismaExam: PrismaExam & { questions: (PrismaQuestion & { options: PrismaQuestionOption[] })[] }): Exam {
   return {
     ...prismaExam,
-    description: prismaExam.description ?? "", 
+    description: prismaExam.description ?? "",
     durationMinutes: prismaExam.durationMinutes ?? undefined,
     openAt: prismaExam.openAt ?? undefined,
     questions: prismaExam.questions.map(q => ({
       ...q,
-      id: q.id, 
-      type: q.type as 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY', 
-      options: q.options.map(opt => ({ ...opt, id: opt.id })), 
+      id: q.id,
+      type: q.type as 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY',
+      options: q.options.map(opt => ({ ...opt, id: opt.id })),
       correctAnswer: q.correctAnswer ?? undefined,
     })),
-    createdAt: new Date(prismaExam.createdAt), 
+    createdAt: new Date(prismaExam.createdAt),
   };
 }
 
 
 export async function createExamAction(values: z.infer<typeof createExamActionPayloadSchema>): Promise<{ success: boolean; message: string; exam?: Exam }> {
-  await new Promise(resolve => setTimeout(resolve, 1000)); 
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   const parsed = createExamActionPayloadSchema.safeParse(values);
   if (!parsed.success) {
     console.error("Validation errors (create):", parsed.error.flatten().fieldErrors);
     return { success: false, message: "Invalid exam data: " + JSON.stringify(parsed.error.flatten().fieldErrors) };
   }
-  if (!parsed.data.passcode) { 
+  if (!parsed.data.passcode) {
     return { success: false, message: "Passcode is required to create an exam." };
   }
-  
+
   const setter = await prisma.user.findUnique({ where: { id: parsed.data.setterId } });
   if (!setter || setter.role !== 'SETTER') {
       return { success: false, message: "Invalid or unauthorized setter ID." };
@@ -88,7 +88,7 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
               correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
             }
             return {
-              id: q_client.id, 
+              id: q_client.id,
               text: q_client.text,
               type: q_client.type as PrismaQuestionType,
               points: q_client.points,
@@ -107,7 +107,7 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
         questions: { include: { options: true } },
       },
     });
-    
+
     const appExam = mapPrismaExamToAppExam(createdExamFromDb);
     return { success: true, message: "Exam created successfully!", exam: appExam };
 
@@ -145,7 +145,7 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         });
       }
 
-      const examDataToUpdate: any = { 
+      const examDataToUpdate: any = {
         title: parsed.data.title,
         description: parsed.data.description,
         durationMinutes: parsed.data.durationMinutes,
@@ -159,7 +159,7 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         where: { id: examId },
         data: {
           ...examDataToUpdate,
-          questions: { 
+          questions: {
             create: parsed.data.questions.map(q_client => {
               let correctAnswerForDb: string | undefined = q_client.correctAnswer;
               if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.correctAnswer) {
@@ -186,7 +186,7 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
       });
       return examBeingUpdated;
     });
-    
+
     const appExam = mapPrismaExamToAppExam(updatedExamFromDb);
     return { success: true, message: "Exam updated successfully!", exam: appExam };
 
@@ -213,19 +213,19 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
     const examsFromDb = await prisma.exam.findMany({
       where: {
         id: {
-          notIn: submittedExamIds 
+          notIn: submittedExamIds
         }
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        questions: { 
+        questions: {
           orderBy: { createdAt: 'asc' },
-          select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: { orderBy: { createdAt: 'asc' }} } 
+          select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: { orderBy: { createdAt: 'asc' }} }
         }
       }
     });
 
-    const appExams: Exam[] = examsFromDb.map(exam => mapPrismaExamToAppExam(exam as any)); 
+    const appExams: Exam[] = examsFromDb.map(exam => mapPrismaExamToAppExam(exam as any));
     return { success: true, exams: appExams };
   } catch (error) {
     console.error("Error listing exams:", error);
@@ -239,11 +239,11 @@ export async function listAllExamsForSetterAction(setterId: string): Promise<{ s
   try {
     const examsFromDb = await prisma.exam.findMany({
       where: {
-        setterId: setterId 
+        setterId: setterId
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        questions: { 
+        questions: {
           orderBy: { createdAt: 'asc' },
           select: { id: true, text: true, type: true, points: true, correctAnswer: true, options: { orderBy: { createdAt: 'asc' }} }
         }
@@ -266,9 +266,9 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
       where: { id },
       include: {
         questions: {
-          orderBy: { createdAt: 'asc' }, 
+          orderBy: { createdAt: 'asc' },
           include: {
-            options: { orderBy: { createdAt: 'asc' } }, 
+            options: { orderBy: { createdAt: 'asc' } },
           },
         },
       },
@@ -308,26 +308,26 @@ export async function verifyPasscodeAction(examId: string, passcode: string): Pr
 
 const submitExamSchema = z.object({
   examId: z.string(),
-  takerId: z.string(), 
+  takerId: z.string(),
   answers: z.array(z.object({
     questionId: z.string(),
-    answer: z.union([z.string(), z.array(z.string())]), 
+    answer: z.union([z.string(), z.array(z.string())]),
   })),
 });
 
 export async function submitExamAnswersAction(values: z.infer<typeof submitExamSchema>): Promise<{ success: boolean; message: string; submissionId?: string }> {
   await new Promise(resolve => setTimeout(resolve, 1000));
-  
+
   const parsed = submitExamSchema.safeParse(values);
   if (!parsed.success) {
     return { success: false, message: "Invalid submission data." };
   }
-  
+
   const taker = await prisma.user.findUnique({ where: { id: parsed.data.takerId } });
   if (!taker || taker.role !== 'TAKER') {
       return { success: false, message: "Invalid taker." };
   }
-  
+
   try {
     const examDetails = await prisma.exam.findUnique({
         where: { id: parsed.data.examId },
@@ -351,11 +351,11 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
     const submission = await prisma.userSubmission.create({
       data: {
         examId: parsed.data.examId,
-        takerId: parsed.data.takerId, 
+        takerId: parsed.data.takerId,
         answers: {
           create: parsed.data.answers.map(ans => ({
             questionId: ans.questionId,
-            answer: ans.answer, 
+            answer: ans.answer,
           })),
         },
       },
@@ -369,15 +369,15 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
 }
 
 export async function deleteExamAction(examId: string): Promise<{ success: boolean; message: string }> {
-  await new Promise(resolve => setTimeout(resolve, 1000)); 
+  await new Promise(resolve => setTimeout(resolve, 1000));
   try {
-    
+
     const submissions = await prisma.userSubmission.findMany({
         where: { examId: examId },
         select: { id: true }
     });
     const submissionIds = submissions.map(s => s.id);
-    
+
     if (submissionIds.length > 0) {
         await prisma.userAnswer.deleteMany({
             where: { submissionId: { in: submissionIds } }
@@ -387,7 +387,7 @@ export async function deleteExamAction(examId: string): Promise<{ success: boole
     await prisma.userSubmission.deleteMany({
         where: { examId: examId }
     });
-    
+
     const questions = await prisma.question.findMany({
         where: { examId: examId },
         select: { id: true }
@@ -412,7 +412,7 @@ export async function deleteExamAction(examId: string): Promise<{ success: boole
   } catch (error) {
     console.error("Error deleting exam:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') { 
+    if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') {
         return { success: false, message: "Exam not found or already deleted." };
     }
     return { success: false, message: `Failed to delete exam: ${errorMessage}` };
@@ -434,7 +434,7 @@ export async function getExamSubmissionsForEvaluationAction(examId: string): Pro
     const submissionsFromDb = await prisma.userSubmission.findMany({
       where: { examId: examId },
       include: {
-        taker: { 
+        taker: {
           select: { email: true, id: true }
         }
       },
@@ -472,17 +472,17 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
             where: { id: submissionId },
             include: {
                 taker: { select: { email: true }},
-                exam: { 
-                    include: { 
-                        questions: { 
+                exam: {
+                    include: {
+                        questions: {
                             orderBy: { createdAt: 'asc' },
                             include: { options: { orderBy: { createdAt: 'asc' }} }
                         }
                     }
                 },
-                answers: { 
-                    include: { question: true } // Removed the invalid orderBy here
-                 } 
+                answers: {
+                   include: { question: true } // Removed problematic orderBy
+                 }
             }
         });
 
@@ -499,7 +499,7 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                 points: q_prisma.points,
                 options: q_prisma.options.map(opt => ({ id: opt.id, text: opt.text })),
                 correctAnswer: q_prisma.correctAnswer ?? undefined,
-                userAnswer: userAnswerRecord?.answer as (string | string[] | undefined), 
+                userAnswer: userAnswerRecord?.answer as (string | string[] | undefined),
                 awardedMarks: userAnswerRecord?.awardedMarks,
                 feedback: userAnswerRecord?.feedback,
             };
@@ -529,7 +529,7 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
     try {
         const submission = await prisma.userSubmission.findUnique({
             where: {id: submissionId},
-            include: {answers: {select: {questionId: true, id: true}}} 
+            include: {answers: {select: {questionId: true, id: true}}}
         });
 
         if (!submission) {
@@ -551,9 +551,9 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
                     throw new Error(`Answer for question ID ${evalAns.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
                  }
 
-                await tx.userAnswer.update({ 
+                await tx.userAnswer.update({
                     where: {
-                        id: userAnswerToUpdate.id 
+                        id: userAnswerToUpdate.id
                     },
                     data: {
                         awardedMarks: evalAns.awardedMarks,
@@ -585,7 +585,7 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     const submissions = await prisma.userSubmission.findMany({
       where: { examId: examId },
       include: {
-        taker: { 
+        taker: {
           select: { email: true }
         }
       },
@@ -610,4 +610,6 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
+
+
     

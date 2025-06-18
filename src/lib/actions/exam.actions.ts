@@ -4,9 +4,7 @@
 import { z } from "zod";
 import { query, pool } from "@/lib/db"; // Use new db utility
 import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation, SubmissionInfo } from "@/lib/types";
-import { Role } from "@/lib/types"; // Use local Role enum
-import { database as firebaseRTDB } from "@/lib/firebase"; 
-import { ref, set as firebaseSet } from "firebase/database";
+import { Role } from "@/lib/types"; 
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -319,8 +317,6 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
 export async function listExamsAction(takerId?: string): Promise<{ success: boolean; exams?: Exam[]; message?: string }> {
   await new Promise(resolve => setTimeout(resolve, 500));
   try {
-    // Logic to filter by allowed taker emails will be added in a subsequent step.
-    // For now, it lists all exams not yet submitted by the taker.
     let submittedExamIdsQuery = '';
     const queryParams: string[] = [];
     if (takerId) {
@@ -350,7 +346,6 @@ export async function listExamsAction(takerId?: string): Promise<{ success: bool
         const options = optionsResult.rows.map(mapDbRowToAppOption);
         questions.push(mapDbRowToAppQuestion(qRow, options));
       }
-      // Fetch allowed emails for this exam
       const allowedEmailsResult = await query('SELECT "takerEmail" FROM "ExamAllowedTaker" WHERE "examId" = $1', [examRow.id]);
       const allowedEmails = allowedEmailsResult.rows.map(r => r.takerEmail);
 
@@ -388,7 +383,6 @@ export async function listAllExamsForSetterAction(setterId: string): Promise<{ s
         const options = optionsResult.rows.map(mapDbRowToAppOption);
         questions.push(mapDbRowToAppQuestion(qRow, options));
       }
-      // Fetch allowed emails for this exam
       const allowedEmailsResult = await query('SELECT "takerEmail" FROM "ExamAllowedTaker" WHERE "examId" = $1', [examRow.id]);
       const allowedEmails = allowedEmailsResult.rows.map(r => r.takerEmail);
       
@@ -442,7 +436,6 @@ export async function getExamByIdAction(id: string): Promise<{ success: boolean;
 
 export async function verifyPasscodeAction(examId: string, passcode: string): Promise<{ success: boolean; message?: string; examOpenAt?: Date | null }> {
   await new Promise(resolve => setTimeout(resolve, 500));
-  // Access control based on allowed takers will be added in a subsequent step.
   try {
     const result = await query('SELECT "passcode", "openAt" FROM "Exam" WHERE "id" = $1', [examId]);
     if (result.rows.length === 0) {
@@ -534,9 +527,7 @@ export async function deleteExamAction(examId: string): Promise<{ success: boole
   try {
     await client.query('BEGIN');
     
-    // Delete from ExamAllowedTaker first
     await client.query('DELETE FROM "ExamAllowedTaker" WHERE "examId" = $1;', [examId]);
-    // Then proceed with other deletions (which should cascade appropriately or be handled directly)
     await client.query('DELETE FROM "UserAnswer" WHERE "submissionId" IN (SELECT "id" FROM "UserSubmission" WHERE "examId" = $1)', [examId]);
     await client.query('DELETE FROM "UserSubmission" WHERE "examId" = $1;', [examId]);
     await client.query('DELETE FROM "QuestionOption" WHERE "questionId" IN (SELECT "id" FROM "Question" WHERE "examId" = $1)', [examId]);
@@ -628,7 +619,6 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
         }
       } catch (e) {
         // console.warn(`Could not parse user answer JSON for QID ${qRow.id}: ${qRow.userAnswer}`, e);
-        // Keep userAnswerFromJson as is if parsing fails (it might be a simple string not intended as JSON)
       }
 
       mappedQuestions.push({
@@ -638,7 +628,7 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
         points: qRow.points,
         options: options,
         correctAnswer: qRow.correctAnswer ?? undefined,
-        userAnswer: userAnswerFromJson, // Use the potentially parsed value
+        userAnswer: userAnswerFromJson, 
         awardedMarks: qRow.awardedMarks,
         feedback: qRow.feedback,
         createdAt: qRow.createdAt,
@@ -667,8 +657,6 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
 
 export async function saveEvaluationAction(submissionId: string, evaluatedAnswers: Array<{ questionId: string, awardedMarks: number, feedback?: string }>, totalScore: number): Promise<{ success: boolean; message: string }> {
   await new Promise(resolve => setTimeout(resolve, 1000));
-  let dbSuccess = false;
-  let firebaseSuccess = false;
   const client = await pool.connect();
 
   try {
@@ -700,33 +688,13 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
     );
     
     await client.query('COMMIT');
-    dbSuccess = true;
-
-    const evaluationDataForFirebase = {
-        totalScore: totalScore,
-        isEvaluated: true,
-        evaluatedAt: new Date().toISOString(),
-        answers: evaluatedAnswers.reduce((acc, ans) => {
-            acc[ans.questionId] = {
-                awardedMarks: ans.awardedMarks,
-                feedback: ans.feedback || ""
-            };
-            return acc;
-        }, {} as Record<string, {awardedMarks: number, feedback: string}>)
-    };
-
-    const dbRef = ref(firebaseRTDB, `evaluations/${submissionId}`);
-    await firebaseSet(dbRef, evaluationDataForFirebase);
-    firebaseSuccess = true;
-
-    return { success: true, message: "Evaluation saved successfully to PostgreSQL and Firebase RTDB." };
+    return { success: true, message: "Evaluation saved successfully to PostgreSQL." };
 
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error("Error saving evaluation (raw SQL / Firebase):", error);
+    console.error("Error saving evaluation (raw SQL):", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    let detailedMessage = `Failed to save evaluation. DB save: ${dbSuccess ? 'OK' : 'Failed'}. Firebase save: ${firebaseSuccess ? 'OK' : 'Failed'}. Error: ${errorMessage}`;
-    return { success: false, message: detailedMessage };
+    return { success: false, message: `Failed to save evaluation to PostgreSQL. Error: ${errorMessage}` };
   } finally {
     client.release();
   }

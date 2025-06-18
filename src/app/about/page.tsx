@@ -60,10 +60,10 @@ export default function AboutPage() {
     <div className="container mx-auto py-12 px-4 md:px-6">
       <header className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-headline font-bold text-primary mb-4">
-          About Examly
+          About AssessMint
         </h1>
         <p className="text-lg sm:text-xl text-foreground max-w-3xl mx-auto">
-          Examly is a modern, AI-enhanced platform designed to streamline the entire examination process for educators and students alike. Discover how our features empower you to create, manage, take, and evaluate exams with unprecedented ease and intelligence.
+          AssessMint is a modern, AI-enhanced platform designed to streamline the entire examination process for educators and students alike. Discover how our features empower you to create, manage, take, and evaluate exams with unprecedented ease and intelligence.
         </p>
       </header>
 
@@ -88,7 +88,7 @@ export default function AboutPage() {
       <footer className="text-center mt-16 py-8 border-t">
         <BookOpenCheck className="h-10 w-10 text-primary mx-auto mb-4" />
         <p className="text-muted-foreground">
-          Thank you for choosing Examly. We're committed to continuously improving and adding features to serve your assessment needs.
+          Thank you for choosing AssessMint. We're committed to continuously improving and adding features to serve your assessment needs.
         </p>
       </footer>
     </div>

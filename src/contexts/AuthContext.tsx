@@ -10,9 +10,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   userRole: UserRole;
   userId: string | null;
-  token: string | null; // Added token
+  // Removed token
   isLoading: boolean;
-  login: (role: UserRole, userId: string, token: string, redirectPath?: string) => void; // Added token to login
+  login: (role: UserRole, userId: string, redirectPath?: string) => void; // Removed token from login
   logout: () => void;
 }
 
@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null); // Added token state
+  // Removed token state
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -31,13 +31,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const storedAuthRaw = localStorage.getItem('assessMintAuth');
       if (storedAuthRaw) {
         const storedAuth = JSON.parse(storedAuthRaw);
-        if (storedAuth.role && storedAuth.id && storedAuth.token) {
+        // Updated to check for id and role only
+        if (storedAuth.role && storedAuth.id) {
           setIsAuthenticated(true);
           setUserRole(storedAuth.role);
           setUserId(storedAuth.id);
-          setToken(storedAuth.token); // Set token from localStorage
+          // Removed token loading
         } else {
-          // If data is incomplete, clear it
           localStorage.removeItem('assessMintAuth');
         }
       }
@@ -48,12 +48,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = (role: UserRole, id: string, jwtToken: string, redirectPath?: string) => {
+  const login = (role: UserRole, id: string, redirectPath?: string) => {
     setIsAuthenticated(true);
     setUserRole(role);
     setUserId(id);
-    setToken(jwtToken); // Set token
-    localStorage.setItem('assessMintAuth', JSON.stringify({ role, id, token: jwtToken })); // Store token
+    // Removed token setting
+    localStorage.setItem('assessMintAuth', JSON.stringify({ role, id })); // Store without token
     if (redirectPath) {
       router.push(redirectPath);
     } else {
@@ -65,13 +65,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
     setUserRole(null);
     setUserId(null);
-    setToken(null); // Clear token
+    // Removed token clearing
     localStorage.removeItem('assessMintAuth');
     router.push('/');
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, userRole, userId, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, userRole, userId, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

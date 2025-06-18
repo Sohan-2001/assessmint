@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { useState } from "react";
+import { Role } from "@prisma/client"; // Import Prisma Role
 
 const signInSchema = z.object({
   email: z.string().email(),
@@ -21,10 +22,10 @@ export default function TakerSignInPage() {
 
   const handleSignIn = async (values: z.infer<typeof signInSchema>) => {
     setIsLoading(true);
-    const result = await signInAction({ ...values, role: "taker" });
+    const result = await signInAction({ ...values, role: Role.TAKER }); // Use Prisma Role
     setIsLoading(false);
-    if (result.success && result.userId) { // Check for userId
-      login("taker", result.userId); // Pass userId to login
+    if (result.success && result.userId && result.token) { 
+      login(Role.TAKER.toLowerCase() as 'taker', result.userId, result.token); // Pass userId and token to login
       toast({ title: "Success", description: result.message });
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });

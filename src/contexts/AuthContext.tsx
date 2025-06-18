@@ -2,16 +2,17 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // Removed usePathname as it's not used
+import { useRouter } from 'next/navigation';
 
 export type UserRole = 'setter' | 'taker' | null;
 
 interface AuthContextType {
   isAuthenticated: boolean;
   userRole: UserRole;
-  userId: string | null; // Added userId
+  userId: string | null;
+  token: string | null; // Added token
   isLoading: boolean;
-  login: (role: UserRole, userId: string, redirectPath?: string) => void; // Added userId to login
+  login: (role: UserRole, userId: string, token: string, redirectPath?: string) => void; // Added token to login
   logout: () => void;
 }
 
@@ -20,18 +21,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(null);
-  const [userId, setUserId] = useState<string | null>(null); // Added userId state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null); // Added token state
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     try {
-      const storedAuth = localStorage.getItem('assessMintAuth');
-      if (storedAuth) {
-        const { role, id } = JSON.parse(storedAuth); // Expect id (userId)
-        setIsAuthenticated(true);
-        setUserRole(role);
-        setUserId(id); // Set userId from localStorage
+      const storedAuthRaw = localStorage.getItem('assessMintAuth');
+      if (storedAuthRaw) {
+        const storedAuth = JSON.parse(storedAuthRaw);
+        if (storedAuth.role && storedAuth.id && storedAuth.token) {
+          setIsAuthenticated(true);
+          setUserRole(storedAuth.role);
+          setUserId(storedAuth.id);
+          setToken(storedAuth.token); // Set token from localStorage
+        } else {
+          // If data is incomplete, clear it
+          localStorage.removeItem('assessMintAuth');
+        }
       }
     } catch (error) {
       console.warn("Could not load auth state from localStorage", error);
@@ -40,11 +48,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = (role: UserRole, id: string, redirectPath?: string) => { // Accept userId
+  const login = (role: UserRole, id: string, jwtToken: string, redirectPath?: string) => {
     setIsAuthenticated(true);
     setUserRole(role);
-    setUserId(id); // Set userId
-    localStorage.setItem('assessMintAuth', JSON.stringify({ role, id })); // Store userId
+    setUserId(id);
+    setToken(jwtToken); // Set token
+    localStorage.setItem('assessMintAuth', JSON.stringify({ role, id, token: jwtToken })); // Store token
     if (redirectPath) {
       router.push(redirectPath);
     } else {
@@ -55,13 +64,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setIsAuthenticated(false);
     setUserRole(null);
-    setUserId(null); // Clear userId
+    setUserId(null);
+    setToken(null); // Clear token
     localStorage.removeItem('assessMintAuth');
     router.push('/');
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, userRole, userId, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, userRole, userId, token, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

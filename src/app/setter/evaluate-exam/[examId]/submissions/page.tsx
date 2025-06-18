@@ -2,12 +2,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } // Added useRouter
+import { useParams, useRouter } 
 from "next/navigation";
 import { getExamSubmissionsForEvaluationAction, getExamByIdAction } from "@/lib/actions/exam.actions";
-import type { SubmissionInfo, Exam } from "@/lib/types"; // Ensure Exam is imported from types
+import { autoEvaluateSubmissionAction } from "@/lib/actions/ai.actions"; // Import AI action
+import type { SubmissionInfo, Exam } from "@/lib/types"; 
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle, Inbox, ClipboardCheck, ArrowLeft, UserCheck } from "lucide-react";
+import { Loader2, AlertTriangle, Inbox, ClipboardCheck, ArrowLeft, UserCheck, Sparkles } from "lucide-react"; // Added Sparkles
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { format } from "date-fns";
@@ -22,6 +23,7 @@ export default function ExamSubmissionsPage() {
   const [submissions, setSubmissions] = useState<SubmissionInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [evaluatingSubmissionId, setEvaluatingSubmissionId] = useState<string | null>(null); // For AI eval loading
   const { toast } = useToast();
 
   const fetchSubmissions = useCallback(async () => {
@@ -48,7 +50,6 @@ export default function ExamSubmissionsPage() {
       setSubmissions(result.submissions);
     } else {
       setError(result.message || "Failed to load submissions for this exam.");
-      // No toast here, as empty submissions is a valid state handled by UI
     }
     setIsLoading(false);
   }, [examId, toast]);
@@ -56,6 +57,20 @@ export default function ExamSubmissionsPage() {
   useEffect(() => {
     fetchSubmissions();
   }, [fetchSubmissions]);
+
+  const handleAutoEvaluate = async (submissionIdToEvaluate: string) => {
+    setEvaluatingSubmissionId(submissionIdToEvaluate);
+    toast({ title: "AI Evaluation Started", description: "The AI is now evaluating the submission. This may take a moment."});
+    const result = await autoEvaluateSubmissionAction(submissionIdToEvaluate);
+    if (result.success) {
+      toast({ title: "AI Evaluation Successful", description: result.message });
+      fetchSubmissions(); // Refresh the list to show updated status
+    } else {
+      toast({ title: "AI Evaluation Failed", description: result.message, variant: "destructive" });
+    }
+    setEvaluatingSubmissionId(null);
+  };
+
 
   if (isLoading) {
     return (
@@ -92,7 +107,7 @@ export default function ExamSubmissionsPage() {
             Submissions for: {exam?.title || "Exam"}
           </CardTitle>
           <CardDescription>
-            Review and evaluate each student's submission.
+            Review and evaluate each student's submission, or use AI to auto-evaluate.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -108,7 +123,7 @@ export default function ExamSubmissionsPage() {
               {submissions.map((submission) => (
                 <div 
                   key={submission.submissionId} 
-                  className="flex flex-col sm:flex-row items-center justify-between p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow bg-card gap-3 sm:gap-4"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg shadow-sm hover:shadow-md transition-shadow bg-card gap-3 sm:gap-4"
                 >
                   <div className="flex-grow">
                     <div className="flex items-center mb-1">
@@ -122,15 +137,33 @@ export default function ExamSubmissionsPage() {
                         Status: {submission.isEvaluated ? `Evaluated (Score: ${submission.evaluatedScore ?? 'N/A'})` : "Pending Evaluation"}
                     </p>
                   </div>
-                  <Button 
-                    asChild 
-                    size="sm" 
-                    className={`text-xs md:text-sm shrink-0 w-full sm:w-auto ${submission.isEvaluated ? 'bg-blue-600 hover:bg-blue-700' : 'bg-accent hover:bg-accent/90'}`}
-                  >
-                    <Link href={`/setter/evaluate-submission/${submission.submissionId}`}>
-                      {submission.isEvaluated ? "View Evaluation" : "Check Submission"}
-                    </Link>
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto shrink-0">
+                    <Button 
+                      asChild 
+                      size="sm" 
+                      className={`text-xs md:text-sm w-full sm:w-auto ${submission.isEvaluated ? 'bg-blue-600 hover:bg-blue-700' : 'bg-accent hover:bg-accent/90'}`}
+                    >
+                      <Link href={`/setter/evaluate-submission/${submission.submissionId}`}>
+                        {submission.isEvaluated ? "View Evaluation" : "Check Submission"}
+                      </Link>
+                    </Button>
+                    {!submission.isEvaluated && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs md:text-sm w-full sm:w-auto border-primary text-primary hover:bg-primary/10"
+                        onClick={() => handleAutoEvaluate(submission.submissionId)}
+                        disabled={evaluatingSubmissionId === submission.submissionId}
+                      >
+                        {evaluatingSubmissionId === submission.submissionId ? (
+                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="mr-1.5 h-4 w-4" />
+                        )}
+                        {evaluatingSubmissionId === submission.submissionId ? "AI Evaluating..." : "Auto-Evaluate"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

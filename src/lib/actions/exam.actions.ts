@@ -46,7 +46,7 @@ function mapPrismaExamToAppExam(prismaExam: PrismaExam & { questions: (PrismaQue
       ...q,
       id: q.id,
       type: q.type as 'MULTIPLE_CHOICE' | 'SHORT_ANSWER' | 'ESSAY',
-      options: q.options.map(opt => ({ ...opt, id: opt.id })),
+      options: q.options.map(opt => ({ ...opt, id: opt.id, text: opt.text })),
       correctAnswer: q.correctAnswer ?? undefined,
     })),
     createdAt: new Date(prismaExam.createdAt),
@@ -83,19 +83,23 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
         questions: {
           create: parsed.data.questions.map(q_client => {
             let correctAnswerForDb: string | undefined = q_client.correctAnswer;
-            if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.correctAnswer) {
+            // For MCQs, if options are present, we want to store the ID of the correct option
+            // if the provided correctAnswer matches the text of an option.
+            if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.options.length > 0 && q_client.correctAnswer) {
               const correctOptionObject = q_client.options.find(opt => opt.text === q_client.correctAnswer);
+              // Use the option's ID (which could be new or existing) if found.
+              // If not found by text (e.g. if initialData passed ID directly), keep as is.
               correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
             }
             return {
-              id: q_client.id,
+              // id: q_client.id, // Let Prisma generate ID for new questions
               text: q_client.text,
               type: q_client.type as PrismaQuestionType,
               points: q_client.points,
               correctAnswer: correctAnswerForDb,
               options: q_client.type === 'MULTIPLE_CHOICE' && q_client.options ? {
                 create: q_client.options.map(opt_client => ({
-                  id: opt_client.id,
+                  // id: opt_client.id, // Let Prisma generate ID for new options
                   text: opt_client.text,
                 }))
               } : undefined,
@@ -130,6 +134,7 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
 
   try {
     const updatedExamFromDb = await prisma.$transaction(async (tx) => {
+      // Delete old questions and their options first
       const existingQuestions = await tx.question.findMany({
         where: { examId: examId },
         select: { id: true }
@@ -145,6 +150,7 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         });
       }
 
+      // Prepare data for exam update
       const examDataToUpdate: any = {
         title: parsed.data.title,
         description: parsed.data.description,
@@ -155,24 +161,28 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         examDataToUpdate.passcode = parsed.data.passcode;
       }
 
+      // Update exam and create new questions
       const examBeingUpdated = await tx.exam.update({
         where: { id: examId },
         data: {
           ...examDataToUpdate,
-          questions: {
+          questions: { // This will create new questions
             create: parsed.data.questions.map(q_client => {
               let correctAnswerForDb: string | undefined = q_client.correctAnswer;
-              if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.correctAnswer) {
+               if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.options.length > 0 && q_client.correctAnswer) {
+                // Find the option by its TEXT to get its (potentially new) ID for storage
                 const correctOptionObject = q_client.options.find(opt => opt.text === q_client.correctAnswer);
                 correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
               }
               return {
+                // Do not provide q_client.id here; let Prisma generate new IDs for these re-created questions
                 text: q_client.text,
                 type: q_client.type as PrismaQuestionType,
                 points: q_client.points,
                 correctAnswer: correctAnswerForDb,
                 options: q_client.type === 'MULTIPLE_CHOICE' && q_client.options ? {
                   create: q_client.options.map(opt_client => ({
+                    // Do not provide opt_client.id; let Prisma generate new IDs
                     text: opt_client.text,
                   }))
                 } : undefined,
@@ -311,7 +321,7 @@ const submitExamSchema = z.object({
   takerId: z.string(),
   answers: z.array(z.object({
     questionId: z.string(),
-    answer: z.union([z.string(), z.array(z.string())]),
+    answer: z.union([z.string(), z.array(z.string())]), // Allow string or array of strings
   })),
 });
 
@@ -355,7 +365,7 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
         answers: {
           create: parsed.data.answers.map(ans => ({
             questionId: ans.questionId,
-            answer: ans.answer,
+            answer: ans.answer, // Prisma expects Json, so string or array of strings is fine
           })),
         },
       },
@@ -480,8 +490,8 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                         }
                     }
                 },
-                answers: {
-                   include: { question: true } // Removed problematic orderBy
+                answers: { // Fetches all answers for this submission
+                   include: { question: true } // No orderBy needed here for a single related question
                  }
             }
         });
@@ -499,6 +509,7 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                 points: q_prisma.points,
                 options: q_prisma.options.map(opt => ({ id: opt.id, text: opt.text })),
                 correctAnswer: q_prisma.correctAnswer ?? undefined,
+                // Ensure userAnswer, awardedMarks, and feedback are populated from userAnswerRecord
                 userAnswer: userAnswerRecord?.answer as (string | string[] | undefined),
                 awardedMarks: userAnswerRecord?.awardedMarks,
                 feedback: userAnswerRecord?.feedback,
@@ -529,11 +540,11 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
     try {
         const submission = await prisma.userSubmission.findUnique({
             where: {id: submissionId},
-            include: {answers: {select: {questionId: true, id: true}}}
+            include: {answers: {select: {questionId: true, id: true}}} // Select id of UserAnswer
         });
 
         if (!submission) {
-          throw new Error(`Submission with ID ${submissionId} not found for validation.`);
+          throw new Error(`Submission with ID ${submissionId} not found.`);
         }
 
         const answerQuestionIdsInDb = new Set(submission.answers.map(a => a.questionId));
@@ -546,13 +557,14 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
 
         await prisma.$transaction(async (tx) => {
             for (const evalAns of evaluatedAnswers) {
+                 // Find the specific UserAnswer record by its own ID
                  const userAnswerToUpdate = submission.answers.find(a => a.questionId === evalAns.questionId);
-                 if (!userAnswerToUpdate) {
+                 if (!userAnswerToUpdate) { // Should not happen if previous checks passed
                     throw new Error(`Answer for question ID ${evalAns.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
                  }
 
                 await tx.userAnswer.update({
-                    where: {
+                    where: { // Update by the unique ID of the UserAnswer record
                         id: userAnswerToUpdate.id
                     },
                     data: {
@@ -610,6 +622,3 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
-
-
-    

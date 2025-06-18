@@ -66,7 +66,6 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
     return { success: false, message: "Passcode is required to create an exam." };
   }
   
-  // Ensure the setter exists (optional, depends on strictness)
   const setter = await prisma.user.findUnique({ where: { id: parsed.data.setterId } });
   if (!setter || setter.role !== 'SETTER') {
       return { success: false, message: "Invalid or unauthorized setter ID." };
@@ -80,7 +79,7 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
         passcode: parsed.data.passcode,
         durationMinutes: parsed.data.durationMinutes,
         openAt: parsed.data.openAt,
-        setterId: parsed.data.setterId, // Use the provided setterId
+        setterId: parsed.data.setterId,
         questions: {
           create: parsed.data.questions.map(q_client => {
             let correctAnswerForDb: string | undefined = q_client.correctAnswer;
@@ -545,7 +544,7 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
         await prisma.$transaction(async (tx) => {
             for (const evalAns of evaluatedAnswers) {
                  const userAnswerToUpdate = submission.answers.find(a => a.questionId === evalAns.questionId);
-                 if (!userAnswerToUpdate) { // Should not happen due to check above, but defensive
+                 if (!userAnswerToUpdate) {
                     throw new Error(`Answer for question ID ${evalAns.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
                  }
 
@@ -608,3 +607,4 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
+

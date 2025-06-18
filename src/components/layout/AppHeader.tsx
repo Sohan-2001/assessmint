@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, FileText, SparklesIcon, Menu, Info } from 'lucide-react';
+import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, SparklesIcon, Menu, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -76,9 +76,6 @@ export function AppHeader() {
                 <>
                   <Button variant="ghost" asChild>
                     <Link href="/setter/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/setter/create-exam"><FileText className="mr-2 h-5 w-5" />Create Exam</Link>
                   </Button>
                   <Button variant="ghost" onClick={() => setIsAiPanelOpen(true)}>
                     <SparklesIcon className="mr-2 h-5 w-5" />AI Questions
@@ -186,9 +183,6 @@ export function AppHeader() {
                       <>
                         <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter/dashboard')}>
                           <LayoutDashboard className={commonMobileIconStyles} />Dashboard
-                        </Button>
-                        <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/setter/create-exam')}>
-                          <FileText className={commonMobileIconStyles} />Create Exam
                         </Button>
                         <Button variant="ghost" className={commonMobileLinkStyles} onClick={openAiPanelAndCloseMobileMenu}>
                           <SparklesIcon className={commonMobileIconStyles} />AI Questions

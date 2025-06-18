@@ -5,6 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import type { Exam as PrismaExam, Question as PrismaQuestion, QuestionOption as PrismaQuestionOption, QuestionType as PrismaQuestionType, UserAnswer as PrismaUserAnswer } from "@prisma/client";
 import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation } from "@/lib/types";
+import { database as firebaseRTDB } from "@/lib/firebase"; 
+import { ref, set as firebaseSet, get as firebaseGet } from "firebase/database";
 
 const questionOptionSchemaClient = z.object({
   id: z.string().optional(),
@@ -83,23 +85,17 @@ export async function createExamAction(values: z.infer<typeof createExamActionPa
         questions: {
           create: parsed.data.questions.map(q_client => {
             let correctAnswerForDb: string | undefined = q_client.correctAnswer;
-            // For MCQs, if options are present, we want to store the ID of the correct option
-            // if the provided correctAnswer matches the text of an option.
             if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.options.length > 0 && q_client.correctAnswer) {
               const correctOptionObject = q_client.options.find(opt => opt.text === q_client.correctAnswer);
-              // Use the option's ID (which could be new or existing) if found.
-              // If not found by text (e.g. if initialData passed ID directly), keep as is.
               correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
             }
             return {
-              // id: q_client.id, // Let Prisma generate ID for new questions
               text: q_client.text,
               type: q_client.type as PrismaQuestionType,
               points: q_client.points,
               correctAnswer: correctAnswerForDb,
               options: q_client.type === 'MULTIPLE_CHOICE' && q_client.options ? {
                 create: q_client.options.map(opt_client => ({
-                  // id: opt_client.id, // Let Prisma generate ID for new options
                   text: opt_client.text,
                 }))
               } : undefined,
@@ -134,7 +130,6 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
 
   try {
     const updatedExamFromDb = await prisma.$transaction(async (tx) => {
-      // Delete old questions and their options first
       const existingQuestions = await tx.question.findMany({
         where: { examId: examId },
         select: { id: true }
@@ -150,7 +145,6 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         });
       }
 
-      // Prepare data for exam update
       const examDataToUpdate: any = {
         title: parsed.data.title,
         description: parsed.data.description,
@@ -161,28 +155,24 @@ export async function updateExamAction(examId: string, values: z.infer<typeof ex
         examDataToUpdate.passcode = parsed.data.passcode;
       }
 
-      // Update exam and create new questions
       const examBeingUpdated = await tx.exam.update({
         where: { id: examId },
         data: {
           ...examDataToUpdate,
-          questions: { // This will create new questions
+          questions: { 
             create: parsed.data.questions.map(q_client => {
               let correctAnswerForDb: string | undefined = q_client.correctAnswer;
                if (q_client.type === 'MULTIPLE_CHOICE' && q_client.options && q_client.options.length > 0 && q_client.correctAnswer) {
-                // Find the option by its TEXT to get its (potentially new) ID for storage
                 const correctOptionObject = q_client.options.find(opt => opt.text === q_client.correctAnswer);
                 correctAnswerForDb = correctOptionObject ? (correctOptionObject.id || q_client.correctAnswer) : q_client.correctAnswer;
               }
               return {
-                // Do not provide q_client.id here; let Prisma generate new IDs for these re-created questions
                 text: q_client.text,
                 type: q_client.type as PrismaQuestionType,
                 points: q_client.points,
                 correctAnswer: correctAnswerForDb,
                 options: q_client.type === 'MULTIPLE_CHOICE' && q_client.options ? {
                   create: q_client.options.map(opt_client => ({
-                    // Do not provide opt_client.id; let Prisma generate new IDs
                     text: opt_client.text,
                   }))
                 } : undefined,
@@ -321,7 +311,7 @@ const submitExamSchema = z.object({
   takerId: z.string(),
   answers: z.array(z.object({
     questionId: z.string(),
-    answer: z.union([z.string(), z.array(z.string())]), // Allow string or array of strings
+    answer: z.union([z.string(), z.array(z.string())]), 
   })),
 });
 
@@ -365,7 +355,7 @@ export async function submitExamAnswersAction(values: z.infer<typeof submitExamS
         answers: {
           create: parsed.data.answers.map(ans => ({
             questionId: ans.questionId,
-            answer: ans.answer, // Prisma expects Json, so string or array of strings is fine
+            answer: ans.answer, 
           })),
         },
       },
@@ -490,8 +480,8 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                         }
                     }
                 },
-                answers: { // Fetches all answers for this submission
-                   include: { question: true } // No orderBy needed here for a single related question
+                answers: { 
+                   include: { question: true } 
                  }
             }
         });
@@ -509,7 +499,6 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
                 points: q_prisma.points,
                 options: q_prisma.options.map(opt => ({ id: opt.id, text: opt.text })),
                 correctAnswer: q_prisma.correctAnswer ?? undefined,
-                // Ensure userAnswer, awardedMarks, and feedback are populated from userAnswerRecord
                 userAnswer: userAnswerRecord?.answer as (string | string[] | undefined),
                 awardedMarks: userAnswerRecord?.awardedMarks,
                 feedback: userAnswerRecord?.feedback,
@@ -537,10 +526,14 @@ export async function getSubmissionDetailsForEvaluationAction(submissionId: stri
 
 export async function saveEvaluationAction(submissionId: string, evaluatedAnswers: Array<{ questionId: string, awardedMarks: number, feedback?: string }>, totalScore: number): Promise<{ success: boolean; message: string }> {
     await new Promise(resolve => setTimeout(resolve, 1000));
+    let prismaSuccess = false;
+    let firebaseSuccess = false;
+
     try {
+        // Save to Prisma (PostgreSQL)
         const submission = await prisma.userSubmission.findUnique({
             where: {id: submissionId},
-            include: {answers: {select: {questionId: true, id: true}}} // Select id of UserAnswer
+            include: {answers: {select: {questionId: true, id: true}}} 
         });
 
         if (!submission) {
@@ -551,20 +544,19 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
         const evaluatedQuestionIdsProvided = new Set(evaluatedAnswers.map(e => e.questionId));
 
         if (answerQuestionIdsInDb.size !== evaluatedQuestionIdsProvided.size || !Array.from(answerQuestionIdsInDb).every(id => evaluatedQuestionIdsProvided.has(id))) {
-            throw new Error("Mismatch between submitted questions and evaluated answers. Ensure all questions are evaluated.");
+            throw new Error(`Mismatch between submitted questions for submission ID ${submissionId} and evaluated answers for question ID ${evaluatedAnswers.map(e => e.questionId).join(', ')}. Ensure all questions are evaluated.`);
         }
 
 
         await prisma.$transaction(async (tx) => {
             for (const evalAns of evaluatedAnswers) {
-                 // Find the specific UserAnswer record by its own ID
                  const userAnswerToUpdate = submission.answers.find(a => a.questionId === evalAns.questionId);
-                 if (!userAnswerToUpdate) { // Should not happen if previous checks passed
+                 if (!userAnswerToUpdate) { 
                     throw new Error(`Answer for question ID ${evalAns.questionId} not found in submission ${submissionId}. Evaluation cannot proceed.`);
                  }
 
                 await tx.userAnswer.update({
-                    where: { // Update by the unique ID of the UserAnswer record
+                    where: { 
                         id: userAnswerToUpdate.id
                     },
                     data: {
@@ -581,11 +573,33 @@ export async function saveEvaluationAction(submissionId: string, evaluatedAnswer
                 }
             });
         });
-        return { success: true, message: "Evaluation saved successfully." };
+        prismaSuccess = true;
+
+        // Save to Firebase Realtime Database
+        const evaluationDataForFirebase = {
+            totalScore: totalScore,
+            isEvaluated: true,
+            evaluatedAt: new Date().toISOString(),
+            answers: evaluatedAnswers.reduce((acc, ans) => {
+                acc[ans.questionId] = {
+                    awardedMarks: ans.awardedMarks,
+                    feedback: ans.feedback || ""
+                };
+                return acc;
+            }, {} as Record<string, {awardedMarks: number, feedback: string}>)
+        };
+
+        const dbRef = ref(firebaseRTDB, `evaluations/${submissionId}`);
+        await firebaseSet(dbRef, evaluationDataForFirebase);
+        firebaseSuccess = true;
+
+        return { success: true, message: "Evaluation saved successfully to both Prisma and Firebase RTDB." };
+
     } catch (error) {
         console.error("Error saving evaluation:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        return { success: false, message: `Failed to save evaluation: ${errorMessage}` };
+        let detailedMessage = `Failed to save evaluation. Prisma save: ${prismaSuccess ? 'OK' : 'Failed'}. Firebase save: ${firebaseSuccess ? 'OK' : 'Failed'}. Error: ${errorMessage}`;
+        return { success: false, message: detailedMessage };
     }
 }
 

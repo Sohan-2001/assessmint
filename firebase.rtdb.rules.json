@@ -1,0 +1,52 @@
+
+{
+  "rules": {
+    // Default deny all reads and writes
+    ".read": false,
+    ".write": false,
+    "exams": {
+      // Allow public read access to exam metadata if needed for listing
+      // This path assumes you might store some public exam info here
+      "$examId": {
+        ".read": true,
+        // Writes to exams should be restricted to authenticated setters
+        // This would typically involve checking auth.uid against a list of setters
+        // or a role stored in Firebase Auth custom claims.
+        // For simplicity, allowing any authenticated user to write if you manage roles elsewhere.
+         ".write": "auth != null" 
+      }
+    },
+    "submissions": {
+      // Students can write their own submissions
+      "$submissionId": {
+        // ".write": "auth != null && newData.child('takerId').val() === auth.uid",
+        // ".read": "auth != null && (data.child('takerId').val() === auth.uid || /* logic for setters to read */ false)"
+        // For now, allowing authenticated users to read/write. Refine based on your auth model.
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "evaluations": {
+      "$submissionId": {
+        // Only authenticated users (presumably setters) can write evaluations
+        ".write": "auth != null",
+        // Authenticated users (setters, and student for their own) can read
+        // This rule is simplified; ideally, you'd check if auth.uid is the takerId
+        // or if the user has a 'setter' role.
+        ".read": "auth != null"
+        // More granular read for student:
+        // ".read": "auth != null && (root.child('submissions').child($submissionId).child('takerId').val() === auth.uid || /* logic for setters */ false)"
+      }
+    },
+    "users": {
+      // Generally, users node should be more restricted.
+      // Allow users to read their own profile, and maybe some public parts of others.
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+    // You might have other top-level nodes like 'questions', etc.
+    // Apply similar principles: default deny, then grant specific access.
+  }
+}

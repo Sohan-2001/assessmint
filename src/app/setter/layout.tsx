@@ -9,6 +9,7 @@ import { SyllabusToQuestionsForm } from "@/components/setter/SyllabusToQuestions
 import { useAiPanel } from "@/contexts/AiPanelContext";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Role } from "@/lib/types"; // Import Role enum
 
 // PanelBodyContent remains a shared component for the form area
 const PanelBodyContent = () => (
@@ -30,13 +31,13 @@ export default function SetterLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log("SetterLayout Auth Check -> isLoading:", isAuthLoading, "isAuthenticated:", isAuthenticated, "userRole:", userRole);
-    if (!isAuthLoading && (!isAuthenticated || userRole !== "setter")) {
-      console.log("SetterLayout: Redirecting to /setter-sign-in based on auth state.");
+    if (!isAuthLoading && (!isAuthenticated || userRole !== Role.SETTER)) { // Use Role.SETTER
+      console.log("SetterLayout: Redirecting to /setter-sign-in based on auth state (Role mismatch or not authenticated). Current role:", userRole);
       router.push("/setter-sign-in");
     }
   }, [isAuthenticated, userRole, isAuthLoading, router]);
 
-  if (isAuthLoading || !isAuthenticated || userRole !== "setter" || isMobile === undefined) {
+  if (isAuthLoading || !isAuthenticated || userRole !== Role.SETTER || isMobile === undefined) { // Use Role.SETTER
     console.log("SetterLayout: Displaying Loader. isAuthLoading:", isAuthLoading, "isAuthenticated:", isAuthenticated, "userRole:", userRole, "isMobile:", isMobile);
     return (
       <div className="flex h-screen items-center justify-center">

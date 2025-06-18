@@ -83,9 +83,14 @@ export function AppHeader() {
                 </>
               )}
               {userRole === 'taker' && (
-                <Button variant="ghost" asChild>
-                  <Link href="/taker/exams"><ListChecks className="mr-2 h-5 w-5" />Available Exams</Link>
-                </Button>
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link href="/taker/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/taker/exams"><ListChecks className="mr-2 h-5 w-5" />Available Exams</Link>
+                  </Button>
+                </>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -184,9 +189,14 @@ export function AppHeader() {
                       </>
                     )}
                     {userRole === 'taker' && (
-                      <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker/exams')}>
-                        <ListChecks className={commonMobileIconStyles} />Available Exams
-                      </Button>
+                      <>
+                        <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker/dashboard')}>
+                          <LayoutDashboard className={commonMobileIconStyles} />Dashboard
+                        </Button>
+                        <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/taker/exams')}>
+                          <ListChecks className={commonMobileIconStyles} />Available Exams
+                        </Button>
+                      </>
                     )}
                   </>
                 ) : (

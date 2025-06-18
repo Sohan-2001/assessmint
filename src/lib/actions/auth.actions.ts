@@ -24,7 +24,8 @@ const signUpSchema = z.object({
 
 
 export async function signInAction(values: z.infer<typeof signInSchema>) {
-  console.log("Attempting sign-in for email:", values.email, "role:", values.role);
+  console.log("Sign-in Action: Entered. Attempting sign-in for email:", values.email, "role:", values.role);
+  console.log("Sign-in Action: DATABASE_URL_IS_SET in this environment:", !!process.env.DATABASE_URL);
   await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
   try {
@@ -33,36 +34,57 @@ export async function signInAction(values: z.infer<typeof signInSchema>) {
     });
 
     if (!user) {
-      console.log("Sign-in failed: User not found for email:", values.email);
+      console.log("Sign-in Action: User not found for email:", values.email);
       return { success: false, message: "Invalid email or password." };
     }
-    console.log("Sign-in: User found:", user.id, "Role in DB:", user.role);
+    console.log("Sign-in Action: User found. ID:", user.id, "DB Role:", user.role, "Hashed PW exists:", !!user.password);
 
 
     const prismaRole: Role = values.role.toUpperCase() as Role;
     if (user.role !== prismaRole) {
-        console.log(`Sign-in failed: Role mismatch for user ${user.id}. Expected ${prismaRole}, got ${user.role}`);
+        console.log(`Sign-in Action: Role mismatch for user ${user.id}. Expected ${prismaRole}, got ${user.role}`);
         return { success: false, message: "Access denied for this role." };
     }
 
+    if (!user.password) {
+        console.error("Sign-in Action: User object found but password hash is missing for user:", user.id);
+        return { success: false, message: "Authentication error. Please contact support." };
+    }
+
+    console.log("Sign-in Action: About to compare password for user:", user.id);
+    console.log("Sign-in Action: Password from input (length):", values.password?.length);
+    
     const passwordMatch = await bcrypt.compare(values.password, user.password);
     if (!passwordMatch) {
-      console.log("Sign-in failed: Password mismatch for user:", user.id);
+      console.log("Sign-in Action: Password mismatch for user:", user.id);
       return { success: false, message: "Invalid email or password." };
     }
 
-    console.log("Sign-in successful for user:", user.id);
+    console.log("Sign-in Action: Sign-in successful for user:", user.id);
     return { success: true, message: "Signed in successfully!", role: values.role, userId: user.id };
 
   } catch (error) {
-    console.error("SIGN_IN_ACTION_ERROR:", error);
-    return { success: false, message: "An unexpected error occurred during sign in. Check server logs for details." };
+    console.log("SIGN_IN_ACTION_CAUGHT_AN_ERROR"); // Simple initial log
+    console.error("SIGN_IN_ACTION_ERROR --- Start of Error Details ---");
+    if (error instanceof Error) {
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        console.error("Error Stack (first few lines):", error.stack ? error.stack.split('\\n').slice(0, 5).join('\\n') : "No stack available");
+    } else {
+        console.error("Caught error is not an instance of Error. Raw error:", error);
+    }
+    console.error("SIGN_IN_ACTION_ERROR --- End of Error Details ---");
+    
+    // This message is generic; specific details should be in server logs.
+    const finalMessageToClient = "An unexpected error occurred during sign in. Please check server logs for detailed error information.";
+    console.log("Sign-in Action: Returning error message to client:", finalMessageToClient);
+    return { success: false, message: finalMessageToClient };
   }
 }
 
 export async function signUpAction(values: z.infer<typeof signUpSchema>) {
-  console.log("Attempting sign-up for email:", values.email, "role:", values.role);
-  await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+  console.log("Sign-up Action: Attempting sign-up for email:", values.email, "role:", values.role);
+  await new Promise(resolve => setTimeout(resolve, 1000)); 
 
   try {
     const existingUser = await prisma.user.findUnique({
@@ -70,7 +92,7 @@ export async function signUpAction(values: z.infer<typeof signUpSchema>) {
     });
 
     if (existingUser) {
-      console.log("Sign-up failed: User already exists with email:", values.email);
+      console.log("Sign-up Action: User already exists with email:", values.email);
       return { success: false, message: "User with this email already exists." };
     }
 
@@ -86,12 +108,22 @@ export async function signUpAction(values: z.infer<typeof signUpSchema>) {
       },
     });
 
-    console.log("Sign-up successful for new user:", newUser.id);
+    console.log("Sign-up Action: Sign-up successful for new user:", newUser.id);
     return { success: true, message: "Account created successfully!", role: values.role, userId: newUser.id };
 
   } catch (error) {
-    console.error("SIGN_UP_ACTION_ERROR:", error);
-    return { success: false, message: "An unexpected error occurred during sign up. Check server logs for details." };
+    console.log("SIGN_UP_ACTION_CAUGHT_AN_ERROR");
+    console.error("SIGN_UP_ACTION_ERROR --- Start of Error Details ---");
+     if (error instanceof Error) {
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        console.error("Error Stack (first few lines):", error.stack ? error.stack.split('\\n').slice(0, 5).join('\\n') : "No stack available");
+    } else {
+        console.error("Caught error is not an instance of Error. Raw error:", error);
+    }
+    console.error("SIGN_UP_ACTION_ERROR --- End of Error Details ---");
+    const finalMessageToClient = "An unexpected error occurred during sign up. Please check server logs for detailed error information.";
+    console.log("Sign-up Action: Returning error message to client:", finalMessageToClient);
+    return { success: false, message: finalMessageToClient };
   }
 }
-

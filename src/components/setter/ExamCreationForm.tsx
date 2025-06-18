@@ -257,6 +257,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
             allowedTakerEmails: values.allowedTakerEmails || "",
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { openDate, openTime, ...payloadForAction } = examDataForCreation;
         console.log("ExamCreationForm onSubmit: Payload being sent to createExamAction:", payloadForAction);
 
@@ -290,46 +291,58 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type !== "text/csv") {
+      const fileType = file.type;
+      const fileName = file.name.toLowerCase();
+
+      if (fileType === "text/csv" || fileName.endsWith(".csv")) {
+        Papa.parse<string[]>(file, {
+          complete: (results) => {
+            const emails = results.data
+              .map(row => row[0]?.trim()) 
+              .filter(email => email && z.string().email().safeParse(email).success); 
+            
+            if (emails.length > 0) {
+              form.setValue("allowedTakerEmails", emails.join(", "));
+              toast({
+                title: "Emails Imported",
+                description: `${emails.length} valid emails extracted from the CSV and added to the list.`,
+              });
+            } else {
+              toast({
+                title: "No Valid Emails Found in CSV",
+                description: "No valid emails were found in the first column of the CSV.",
+                variant: "default",
+              });
+            }
+            event.target.value = ""; 
+          },
+          error: (error) => {
+            toast({
+              title: "CSV Parsing Error",
+              description: error.message,
+              variant: "destructive",
+            });
+            event.target.value = ""; 
+          },
+        });
+      } else if (fileName.endsWith(".xls") || fileName.endsWith(".xlsx") || 
+                 fileType === "application/vnd.ms-excel" || 
+                 fileType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
         toast({
-          title: "Invalid File Type",
-          description: "Please upload a CSV file (.csv).",
+          title: "Excel File Uploaded",
+          description: "For Excel files (.xls, .xlsx), please save as CSV (Comma Separated Values) format first and then upload the .csv file to extract emails.",
+          variant: "default",
+          duration: 7000,
+        });
+        event.target.value = ""; 
+      } else {
+         toast({
+          title: "Unsupported File Type",
+          description: "Please upload a CSV file (.csv). If using Excel, save your file as CSV first.",
           variant: "destructive",
         });
-        event.target.value = ""; // Reset file input
-        return;
+        event.target.value = ""; 
       }
-
-      Papa.parse<string[]>(file, {
-        complete: (results) => {
-          const emails = results.data
-            .map(row => row[0]?.trim()) // Assuming email is in the first column
-            .filter(email => email && z.string().email().safeParse(email).success); // Basic validation
-          
-          if (emails.length > 0) {
-            form.setValue("allowedTakerEmails", emails.join(", "));
-            toast({
-              title: "Emails Imported",
-              description: `${emails.length} valid emails extracted from the CSV and added to the list.`,
-            });
-          } else {
-            toast({
-              title: "No Emails Found",
-              description: "No valid emails were found in the first column of the CSV.",
-              variant: "default",
-            });
-          }
-           event.target.value = ""; // Reset file input after processing
-        },
-        error: (error) => {
-          toast({
-            title: "CSV Parsing Error",
-            description: error.message,
-            variant: "destructive",
-          });
-           event.target.value = ""; 
-        },
-      });
     }
   };
 
@@ -418,20 +431,20 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
               )} />
               <div className="mt-2">
                 <FormLabel htmlFor="email-upload" className="text-sm font-medium">
-                  Or Upload CSV
+                  Or Upload Email List
                 </FormLabel>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
                     id="email-upload"
                     type="file"
-                    accept=".csv"
+                    accept=".csv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     onChange={handleFileUpload}
                     className="text-sm file:mr-2 file:py-1.5 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-muted/80"
                   />
                    <UploadCloud className="h-5 w-5 text-muted-foreground" />
                 </div>
                  <p className="text-xs text-muted-foreground mt-1">
-                    Upload a .csv file with emails in the first column. Existing emails in the text area above will be replaced.
+                    Upload a .csv file with emails in the first column. For Excel (.xls, .xlsx), please save as CSV first.
                   </p>
               </div>
                <p className="text-xs text-muted-foreground mt-3">

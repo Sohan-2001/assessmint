@@ -5,13 +5,12 @@ import { z } from "zod";
 import { query } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { Role } from "@/lib/types";
-import { v4 as uuidv4 } from 'uuid'; // Import uuid
+import { v4 as uuidv4 } from 'uuid';
 
-// Define return type for consistency
 type AuthResponse = {
   success: boolean;
   message: string;
-  role?: string; // Will be 'SETTER' or 'TAKER'
+  role?: string;
   userId?: string;
 };
 
@@ -56,7 +55,7 @@ export async function signInAction(
 
   try {
     console.log("Sign-in Action: Attempting to find user with email:", values.email);
-    const userResult = await query('SELECT id, email, password, role FROM "User" WHERE email = $1', [
+    const userResult = await query('SELECT "id", "email", "password", "role" FROM "User" WHERE "email" = $1', [
       values.email,
     ]);
 
@@ -69,8 +68,6 @@ export async function signInAction(
     }
     const user = userResult.rows[0];
     console.log("Sign-in Action: User found. DB Role:", user.role, "Input Role:", values.role);
-    console.log("Sign-in Action: Input password length:", values.password.length);
-    if(user.password) console.log("Sign-in Action: DB password hash snippet:", user.password.substring(0,10) + "...");
 
 
     if (user.role !== values.role) {
@@ -96,7 +93,7 @@ export async function signInAction(
     return {
       success: true,
       message: "Signed in successfully!",
-      role: user.role, 
+      role: user.role,
       userId: user.id,
     };
   } catch (error) {
@@ -112,7 +109,7 @@ export async function signInAction(
       console.error("Caught error is not an instance of Error. Raw error:", error);
     }
     console.error("SIGN_IN_ACTION_ERROR --- End of Error Details ---");
-    
+
     return {
       success: false,
       message: "Authentication failed: An unexpected error occurred. Please try again later.",
@@ -129,7 +126,7 @@ export async function signUpAction(
   }
 
   try {
-    const existingUserResult = await query('SELECT id FROM "User" WHERE email = $1', [values.email]);
+    const existingUserResult = await query('SELECT "id" FROM "User" WHERE "email" = $1', [values.email]);
 
     if (existingUserResult.rows.length > 0) {
       console.log("Sign-up Action: User with email already exists:", values.email);
@@ -140,12 +137,12 @@ export async function signUpAction(
     }
 
     const hashedPassword = await bcrypt.hash(values.password, 10);
-    const newUserId = uuidv4(); // Generate a new UUID for the user
-    console.log("Sign-up Action: Password hashed. New User ID:", newUserId, ". Attempting to create user.");
+    const newUserId = uuidv4();
+    console.log("Sign-up Action: Password hashed. New User ID:", newUserId, ". Attempting to create user with role:", values.role);
 
     const newUserResult = await query(
-      'INSERT INTO "User" (id, email, password, role, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING id, role',
-      [newUserId, values.email, hashedPassword, values.role], // Pass the newUserId
+      'INSERT INTO "User" ("id", "email", "password", "role", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING "id", "role"',
+      [newUserId, values.email, hashedPassword, values.role],
     );
 
     if (newUserResult.rows.length === 0) {
@@ -153,7 +150,7 @@ export async function signUpAction(
         throw new Error("User creation failed at database level.");
     }
     const newUser = newUserResult.rows[0];
-    console.log("Sign-up Action: User created successfully. ID:", newUser.id);
+    console.log("Sign-up Action: User created successfully. ID:", newUser.id, "Role:", newUser.role);
 
     return {
       success: true,
@@ -174,7 +171,7 @@ export async function signUpAction(
       console.error("Caught error is not an instance of Error. Raw error:", error);
     }
     console.error("SIGN_UP_ACTION_ERROR --- End of Error Details ---");
-    
+
     return {
       success: false,
       message: "Authentication failed: An unexpected error occurred during sign-up. Please try again later.",

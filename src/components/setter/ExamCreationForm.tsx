@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createExamAction } from "@/lib/actions/exam.actions"; 
+import { createExamAction } from "@/lib/actions/exam.actions";
 import { Loader2, PlusCircle, Trash2, Save, ListChecks, Edit, CalendarIcon, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,7 +36,6 @@ const questionSchema = z.object({
   points: z.coerce.number().min(0, "Points must be non-negative").default(0),
 });
 
-// This schema is for the form itself
 export const examFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters long"),
   description: z.string().optional(),
@@ -49,7 +48,7 @@ export const examFormSchema = z.object({
     .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time (HH:MM)")
     .optional()
     .nullable(),
-  allowedTakerEmails: z.string().optional(), // Textarea for comma-separated emails
+  allowedTakerEmails: z.string().optional(),
 }).refine(data => {
     if ((data.openDate && !data.openTime) || (!data.openDate && data.openTime)) {
         return false;
@@ -57,14 +56,14 @@ export const examFormSchema = z.object({
     return true;
 }, {
     message: "Both date and time must be provided for scheduling, or neither.",
-    path: ["openTime"], 
+    path: ["openTime"],
 });
 
 type ExamFormValues = z.infer<typeof examFormSchema>;
 type QuestionFormValues = z.infer<typeof questionSchema>;
 
 interface ExamCreationFormProps {
-    initialData?: ExamFormValues & { openAt?: Date | null }; 
+    initialData?: ExamFormValues & { openAt?: Date | null };
     examIdToUpdate?: string;
     onSubmitOverride?: (values: ExamFormValues, combinedOpenAt: Date | null) => Promise<void>;
 }
@@ -124,7 +123,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { userId, isLoading: isAuthLoading } = useAuth();
+  const { userId, userRole, isLoading: isAuthLoading } = useAuth(); // Added userRole here
   const isEditMode = !!initialData && !!examIdToUpdate;
 
   const defaultQuestionValues = {
@@ -148,7 +147,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
       formOpenDate = openAtDate;
       formOpenTime = format(openAtDate, "HH:mm");
     }
-    
+
     return {
         title: data?.title || "",
         description: data?.description || "",
@@ -156,14 +155,14 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         durationMinutes: data?.durationMinutes ?? null,
         questions: data?.questions?.length ? data.questions.map(q => ({
           ...q,
-          correctAnswer: q.correctAnswer ?? undefined 
+          correctAnswer: q.correctAnswer ?? undefined
         })) : [defaultQuestionValues],
         openDate: formOpenDate,
         openTime: formOpenTime,
-        allowedTakerEmails: data?.allowedTakerEmails || "", // Initialize from initialData
+        allowedTakerEmails: data?.allowedTakerEmails || "",
     };
   };
-  
+
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
     defaultValues: initialData ? mapInitialDataToForm(initialData) : {
@@ -219,13 +218,15 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
 
   async function onSubmit(values: ExamFormValues) {
     setIsSubmitting(true);
+    console.log("ExamCreationForm onSubmit: userId from useAuth():", userId, "userRole from useAuth():", userRole);
+
 
     let combinedOpenAt: Date | null = null;
     if (values.openDate && values.openTime) {
         try {
             const [hours, minutes] = values.openTime.split(':').map(Number);
             const dateWithTime = new Date(values.openDate);
-            dateWithTime.setHours(hours, minutes, 0, 0); 
+            dateWithTime.setHours(hours, minutes, 0, 0);
             combinedOpenAt = dateWithTime;
         } catch (e) {
             toast({ title: "Error", description: "Invalid date/time for scheduling.", variant: "destructive" });
@@ -236,7 +237,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
 
 
     if (onSubmitOverride && examIdToUpdate) {
-        await onSubmitOverride(values, combinedOpenAt); 
+        await onSubmitOverride(values, combinedOpenAt);
     } else {
         if (isAuthLoading || !userId) {
             toast({ title: "Authentication Error", description: "User not authenticated or still loading. Cannot create exam.", variant: "destructive" });
@@ -251,13 +252,14 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
         }
 
         const examDataForCreation = {
-            ...values, 
-            setterId: userId, 
+            ...values,
+            setterId: userId,
             openAt: combinedOpenAt,
-            allowedTakerEmails: values.allowedTakerEmails || "", // Pass as string
+            allowedTakerEmails: values.allowedTakerEmails || "",
         };
-        
+
         const { openDate, openTime, ...payloadForAction } = examDataForCreation;
+        console.log("ExamCreationForm onSubmit: Payload being sent to createExamAction:", payloadForAction);
 
 
         try {
@@ -267,7 +269,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
               title: "Exam Created!",
               description: `"${result.exam.title}" has been successfully created.`,
             });
-            form.reset(); 
+            form.reset();
             router.push("/setter/dashboard");
           } else {
             toast({
@@ -333,11 +335,11 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                       type="number"
                       placeholder="e.g., 60"
                       {...field}
-                      value={field.value === null || field.value === undefined ? "" : field.value} 
+                      value={field.value === null || field.value === undefined ? "" : field.value}
                       onChange={e => {
                         const val = e.target.value;
                         if (val === "") {
-                          field.onChange(null); 
+                          field.onChange(null);
                         } else {
                           const parsed = parseInt(val, 10);
                           field.onChange(isNaN(parsed) ? null : parsed);
@@ -360,9 +362,9 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                 <FormItem>
                   <FormLabel>Taker Emails</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Enter email addresses, separated by commas or new lines. e.g., user1@example.com, user2@example.com" 
-                      {...field} 
+                    <Textarea
+                      placeholder="Enter email addresses, separated by commas or new lines. e.g., user1@example.com, user2@example.com"
+                      {...field}
                       value={field.value ?? ""}
                       className="min-h-[80px]"
                     />
@@ -409,7 +411,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                                     mode="single"
                                     selected={field.value ?? undefined}
                                     onSelect={(date) => field.onChange(date ?? null)}
-                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } 
+                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) }
                                     initialFocus
                                 />
                                 </PopoverContent>
@@ -425,10 +427,10 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                             <FormItem className="flex flex-col">
                                 <FormLabel>Opening Time (HH:MM)</FormLabel>
                                 <FormControl>
-                                    <Input 
-                                        type="time" 
-                                        placeholder="e.g., 09:30" 
-                                        {...field} 
+                                    <Input
+                                        type="time"
+                                        placeholder="e.g., 09:30"
+                                        {...field}
                                         value={field.value ?? ""}
                                     />
                                 </FormControl>
@@ -504,7 +506,7 @@ export function ExamCreationForm({ initialData, examIdToUpdate, onSubmitOverride
                             onChange={e => {
                               const val = e.target.value;
                               if (val === "") {
-                                field.onChange(0); 
+                                field.onChange(0);
                               } else {
                                 const parsed = parseInt(val, 10);
                                 field.onChange(isNaN(parsed) ? 0 : parsed);

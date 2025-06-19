@@ -14,8 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { submitExamAnswersAction } from "@/lib/actions/exam.actions";
 import { useRouter } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play, AlertTriangle, ScreenShare } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play, AlertTriangle, ScreenShare, Video } from "lucide-react"; // Added Video
+import { useAuth } from "@/contexts/AuthContext"; 
 
 type ExamTakingInterfaceProps = {
   exam: Exam;
@@ -27,9 +27,11 @@ interface SavedExamState {
   timeLeft: number | null;
   isPaused: boolean;
   examStarted: boolean;
+  jitsiRoomName?: string;
 }
 
 const getLocalStorageKey = (examId: string) => `assessMint_exam_progress_${examId}`;
+const JITSI_APP_PREFIX = "AssessMintProctor";
 
 export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -43,10 +45,12 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
   const [examStarted, setExamStarted] = useState(false);
   const [forceSubmitted, setForceSubmitted] = useState(false);
   const examInterfaceRef = useRef<HTMLDivElement>(null);
+  const [jitsiRoomName, setJitsiRoomName] = useState<string | null>(null);
+  const [showJitsi, setShowJitsi] = useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
-  const { userId, isLoading: isAuthLoading } = useAuth(); // Get userId
+  const { userId, isLoading: isAuthLoading } = useAuth(); 
 
   const currentQuestion = exam.questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / exam.questions.length) * 100;
@@ -59,10 +63,11 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
         timeLeft,
         isPaused,
         examStarted,
+        jitsiRoomName: jitsiRoomName || undefined,
       };
       localStorage.setItem(getLocalStorageKey(exam.id), JSON.stringify(stateToSave));
     }
-  }, [answers, currentQuestionIndex, timeLeft, isPaused, examStarted, exam.id]);
+  }, [answers, currentQuestionIndex, timeLeft, isPaused, examStarted, exam.id, jitsiRoomName]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && exam.id) {
@@ -75,6 +80,10 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
           setTimeLeft(savedState.timeLeft);
           setIsPaused(savedState.isPaused);
           setExamStarted(savedState.examStarted);
+          if (savedState.jitsiRoomName) {
+            setJitsiRoomName(savedState.jitsiRoomName);
+            setShowJitsi(savedState.examStarted); // Show Jitsi if exam was started
+          }
           if (savedState.examStarted && !document.fullscreenElement && examInterfaceRef.current) {
             // Potentially handle re-entering fullscreen or auto-submitting based on policy
           }
@@ -94,11 +103,11 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     if (isLoadedFromStorage) { 
         saveStateToLocalStorage();
     }
-  }, [answers, currentQuestionIndex, timeLeft, isPaused, examStarted, saveStateToLocalStorage, isLoadedFromStorage]);
+  }, [answers, currentQuestionIndex, timeLeft, isPaused, examStarted, jitsiRoomName, saveStateToLocalStorage, isLoadedFromStorage]);
 
 
   const handleSubmit = useCallback(async (autoSubmit: boolean = false, reason?: string) => {
-    if (forceSubmitted || isLoading || !userId) { // Ensure userId is available
+    if (forceSubmitted || isLoading || !userId) { 
         if (!userId) toast({title: "Error", description: "User not authenticated. Cannot submit.", variant: "destructive"});
         return;
     }
@@ -114,8 +123,8 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
             console.error("Could not exit fullscreen:", err);
         }
     }
+    setShowJitsi(false); 
 
-    // Pass takerId to the action
     const result = await submitExamAnswersAction({ examId: exam.id, takerId: userId, answers });
     setIsLoading(false);
     if (result.success) {
@@ -127,12 +136,13 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     } else {
       toast({ title: "Submission Failed", description: result.message || "Could not submit your answers.", variant: "destructive" });
       setForceSubmitted(false);
+      setShowJitsi(examStarted); // Re-show Jitsi if submission failed and exam was started
     }
     if (autoSubmit && timeLeft === 0 && !reason) { 
         toast({ title: "Time's Up!", description: "Your exam has been automatically submitted.", variant: "default" });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exam.id, answers, router, toast, forceSubmitted, isLoading, timeLeft, userId]);
+  }, [exam.id, answers, router, toast, forceSubmitted, isLoading, timeLeft, userId, examStarted]);
 
 
   useEffect(() => {
@@ -212,19 +222,24 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
   const togglePause = () => {
     if (!examStarted || forceSubmitted) return;
     setIsPaused(!isPaused);
-    if (!isPaused) { // Means it was paused, now resuming
+    if (!isPaused) { 
       toast({ title: "Exam Resumed"});
-    } else { // Means it was active, now pausing
-      saveStateToLocalStorage(); // Save state when pausing
+      setShowJitsi(true);
+    } else { 
+      saveStateToLocalStorage(); 
       toast({ title: "Exam Paused", description: "Your progress is saved. You can resume when ready."});
+      setShowJitsi(false);
     }
   };
 
   const handleStartExam = async () => {
-    if (examInterfaceRef.current) {
+    if (examInterfaceRef.current && userId) {
       try {
         await examInterfaceRef.current.requestFullscreen();
         setExamStarted(true);
+        const room = `${JITSI_APP_PREFIX}-${exam.id}-${userId}`;
+        setJitsiRoomName(room);
+        setShowJitsi(true);
       } catch (err) {
         console.error("Failed to enter fullscreen:", err);
         toast({
@@ -233,6 +248,12 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
           variant: "destructive",
         });
       }
+    } else if (!userId) {
+        toast({
+          title: "Authentication Error",
+          description: "Cannot start exam, user ID not found.",
+          variant: "destructive",
+        });
     }
   };
 
@@ -282,7 +303,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     }
   };
 
-  if (!isLoadedFromStorage || isAuthLoading) { // Also check for auth loading
+  if (!isLoadedFromStorage || isAuthLoading) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-var(--header-height,8rem))]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -310,6 +331,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
               </h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-destructive/90">
                 <li>This exam must be taken in fullscreen mode.</li>
+                <li>Manual proctoring via video call may be active.</li>
                 <li>Exiting fullscreen will automatically submit your exam.</li>
                 <li>Switching to another browser tab or window will automatically submit your exam.</li>
                 <li>Ensure you have a stable internet connection.</li>
@@ -317,7 +339,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
               </ul>
             </div>
             <p className="text-sm text-muted-foreground">
-              Click the button below to start the exam in fullscreen.
+              Click the button below to start the exam in fullscreen. Your camera and microphone may be requested for proctoring.
             </p>
           </CardContent>
           <CardFooter>
@@ -330,10 +352,24 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     );
   }
 
+  const jitsiMeetUrl = jitsiRoomName 
+  ? `https://meet.jit.si/${jitsiRoomName}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&userInfo.displayName="Taker-${userId || 'Guest'}"&config.prejoinPageEnabled=false&config.toolbarButtons=["microphone","camera","tileview","hangup"]`
+  : "";
+
 
   return (
-    <div ref={examInterfaceRef} className="max-w-3xl mx-auto bg-background"> {/* Ensure background for fullscreen */}
-      <Card className="shadow-xl min-h-screen flex flex-col"> {/* Ensure card takes full height */}
+    <div ref={examInterfaceRef} className="max-w-3xl mx-auto bg-background relative"> 
+      {showJitsi && jitsiMeetUrl && (
+        <div className="fixed bottom-4 right-4 w-64 h-48 z-50 shadow-2xl rounded-lg overflow-hidden border-2 border-primary bg-black">
+          <iframe
+            src={jitsiMeetUrl}
+            allow="camera; microphone; fullscreen; display-capture"
+            className="w-full h-full"
+            title="Jitsi Proctoring"
+          ></iframe>
+        </div>
+      )}
+      <Card className="shadow-xl min-h-screen flex flex-col"> 
         <CardHeader className="border-b">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-0">
             <CardTitle className="text-2xl md:text-3xl font-headline text-primary">{exam.title}</CardTitle>
@@ -381,7 +417,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
               </Card>
             </CardContent>
 
-            <CardFooter className="flex justify-between border-t pt-6 mt-auto"> {/* mt-auto for footer stickiness */}
+            <CardFooter className="flex justify-between border-t pt-6 mt-auto"> 
               <Button variant="outline" onClick={handlePreviousQuestion} disabled={currentQuestionIndex === 0 || isLoading || forceSubmitted} className="text-sm md:text-base">
                 Previous
               </Button>

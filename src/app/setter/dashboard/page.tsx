@@ -67,9 +67,11 @@ export default function SetterDashboardPage() {
           </CardHeader>
           <CardContent>
             <CardDescription className="mb-4 text-sm md:text-base">
-              Monitor exams with AI-powered proctoring features.
+              Manually proctor ongoing exam sessions via Jitsi.
             </CardDescription>
-            <p className="mt-4 text-sm text-muted-foreground">Feature coming soon.</p>
+            <Button asChild className="w-full text-sm md:text-base bg-blue-600 hover:bg-blue-700 text-white">
+              <Link href="/setter/proctoring">Go to Proctoring</Link>
+            </Button>
           </CardContent>
         </Card>
         

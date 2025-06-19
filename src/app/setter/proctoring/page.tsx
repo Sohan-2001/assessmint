@@ -71,7 +71,7 @@ export default function ProctoringPage() {
   };
 
   const jitsiMeetUrl = jitsiRoomToJoin
-    ? `https://meet.jit.si/${jitsiRoomToJoin}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&userInfo.displayName="Proctor-${userId || 'Admin'}"&config.prejoinPageEnabled=false&config.toolbarButtons=["microphone","camera","tileview","hangup","fullscreen"]`
+    ? `https://meet.jit.si/${jitsiRoomToJoin}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&userInfo.displayName="Proctor-${userId || 'Admin'}"&config.toolbarButtons=["microphone","camera","tileview","hangup","fullscreen"]`
     : "";
 
   if (isAuthLoading || isFetchingExams) {
@@ -191,3 +191,4 @@ export default function ProctoringPage() {
     </div>
   );
 }
+

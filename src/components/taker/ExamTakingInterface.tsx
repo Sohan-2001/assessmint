@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { submitExamAnswersAction } from "@/lib/actions/exam.actions";
 import { useRouter } from "next/navigation";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play, AlertTriangle, ScreenShare, Video } from "lucide-react"; // Added Video
+import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play, AlertTriangle, ScreenShare, Video } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext"; 
 
 type ExamTakingInterfaceProps = {
@@ -30,7 +30,7 @@ interface SavedExamState {
   jitsiRoomName?: string;
 }
 
-const getLocalStorageKey = (examId: string) => `assessMint_exam_progress_${examId}`;
+const getLocalStorageKey = (examId: string) => `AssessMint_exam_progress_${examId}`;
 const JITSI_APP_PREFIX = "AssessMintProctor";
 
 export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
@@ -82,10 +82,9 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
           setExamStarted(savedState.examStarted);
           if (savedState.jitsiRoomName) {
             setJitsiRoomName(savedState.jitsiRoomName);
-            setShowJitsi(savedState.examStarted); // Show Jitsi if exam was started
+            setShowJitsi(savedState.examStarted); 
           }
           if (savedState.examStarted && !document.fullscreenElement && examInterfaceRef.current) {
-            // Potentially handle re-entering fullscreen or auto-submitting based on policy
           }
           toast({ title: "Exam Resumed", description: "Your previous progress has been loaded."});
         } catch (error) {
@@ -136,7 +135,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
     } else {
       toast({ title: "Submission Failed", description: result.message || "Could not submit your answers.", variant: "destructive" });
       setForceSubmitted(false);
-      setShowJitsi(examStarted); // Re-show Jitsi if submission failed and exam was started
+      setShowJitsi(examStarted); 
     }
     if (autoSubmit && timeLeft === 0 && !reason) { 
         toast({ title: "Time's Up!", description: "Your exam has been automatically submitted.", variant: "default" });
@@ -237,7 +236,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
       try {
         await examInterfaceRef.current.requestFullscreen();
         setExamStarted(true);
-        const room = `${JITSI_APP_PREFIX}-${exam.id}-${userId}`;
+        const room = `${JITSI_APP_PREFIX}-${exam.id}`; // Changed room name
         setJitsiRoomName(room);
         setShowJitsi(true);
       } catch (err) {

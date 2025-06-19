@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { submitExamAnswersAction } from "@/lib/actions/exam.actions";
 import { useRouter } from "next/navigation";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Clock, FileQuestion, Loader2, Send, PauseOctagon, Play, AlertTriangle, ScreenShare, Video } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext"; 
 
@@ -236,7 +236,7 @@ export function ExamTakingInterface({ exam }: ExamTakingInterfaceProps) {
       try {
         await examInterfaceRef.current.requestFullscreen();
         setExamStarted(true);
-        const room = `${JITSI_APP_PREFIX}-${exam.id}`; // Changed room name
+        const room = `${JITSI_APP_PREFIX}-${exam.id}`; 
         setJitsiRoomName(room);
         setShowJitsi(true);
       } catch (err) {

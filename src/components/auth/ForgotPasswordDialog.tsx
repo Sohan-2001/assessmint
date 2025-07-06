@@ -11,10 +11,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { sendOtpAction, resetPasswordAction } from "@/lib/actions/password.actions";
+import { sendOtpAction, signInWithOtpAction } from "@/lib/actions/password.actions";
 import { Role } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface ForgotPasswordDialogProps {
+interface OtpSignInDialogProps {
   role: Role;
 }
 
@@ -22,31 +23,27 @@ const emailSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
 });
 
-const resetSchema = z.object({
+const otpSchema = z.object({
   otp: z.string().length(6, { message: "OTP must be 6 digits." }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters." }),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match.",
-  path: ["confirmPassword"],
 });
 
 
-export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
+export function OtpSignInDialog({ role }: OtpSignInDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [userEmail, setUserEmail] = useState("");
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const emailForm = useForm<z.infer<typeof emailSchema>>({
     resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
   });
 
-  const resetForm = useForm<z.infer<typeof resetSchema>>({
-    resolver: zodResolver(resetSchema),
-    defaultValues: { otp: "", password: "", confirmPassword: "" },
+  const otpForm = useForm<z.infer<typeof otpSchema>>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: { otp: "" },
   });
 
   const handleSendOtp = async (values: z.infer<typeof emailSchema>) => {
@@ -60,24 +57,23 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
     setIsLoading(false);
   };
 
-  const handleResetPassword = async (values: z.infer<typeof resetSchema>) => {
+  const handleSignInWithOtp = async (values: z.infer<typeof otpSchema>) => {
     setIsLoading(true);
-    const result = await resetPasswordAction({ email: userEmail, role, ...values });
-    toast({
-      title: "Password Reset",
-      description: result.message,
-      variant: result.success ? "default" : "destructive",
-    });
-
-    if (result.success) {
+    const result = await signInWithOtpAction({ email: userEmail, role, ...values });
+    
+    if (result.success && result.userId && result.role) {
+      toast({
+        title: "Sign In Successful",
+        description: result.message,
+      });
+      login(result.role as Role, result.userId);
       setIsOpen(false);
-      // Reset state for next time
-      setTimeout(() => {
-        setStep(1);
-        setUserEmail("");
-        emailForm.reset();
-        resetForm.reset();
-      }, 300);
+    } else {
+       toast({
+        title: "Sign In Failed",
+        description: result.message,
+        variant: "destructive",
+      });
     }
     setIsLoading(false);
   };
@@ -86,7 +82,7 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
     if (!open) {
       // Reset forms and state when dialog is closed
       emailForm.reset();
-      resetForm.reset();
+      otpForm.reset();
       setStep(1);
       setUserEmail("");
     }
@@ -98,16 +94,16 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="link" type="button" className="px-0 text-sm h-auto font-normal text-accent hover:underline">
-          Forgot Password?
+          Sign in with OTP?
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Reset Password</DialogTitle>
+          <DialogTitle>Sign In with OTP</DialogTitle>
           <DialogDescription>
             {step === 1
               ? "Enter your email to receive a One-Time Password (OTP)."
-              : `Enter the OTP sent to ${userEmail} and your new password.`}
+              : `Enter the OTP sent to ${userEmail} to sign in.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -139,10 +135,10 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
         )}
 
         {step === 2 && (
-          <Form {...resetForm}>
-            <form onSubmit={resetForm.handleSubmit(handleResetPassword)} className="space-y-4">
+          <Form {...otpForm}>
+            <form onSubmit={otpForm.handleSubmit(handleSignInWithOtp)} className="space-y-4">
               <FormField
-                control={resetForm.control}
+                control={otpForm.control}
                 name="otp"
                 render={({ field }) => (
                   <FormItem>
@@ -154,37 +150,11 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={resetForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>New Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={resetForm.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm New Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setStep(1)} disabled={isLoading}>Back</Button>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Reset Password
+                  Sign In
                 </Button>
               </DialogFooter>
             </form>

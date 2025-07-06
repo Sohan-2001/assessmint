@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import { Role } from "@/lib/types";
 import { v4 as uuidv4 } from 'uuid';
 
-type AuthResponse = {
+export type AuthResponse = {
   success: boolean;
   message: string;
   role?: string;

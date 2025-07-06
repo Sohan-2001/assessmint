@@ -19,7 +19,7 @@ import Link from "next/link";
 import { Role } from "@/lib/types";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
+import { OtpSignInDialog } from "./ForgotPasswordDialog";
 
 const formSchemaBase = {
   email: z.string().email({ message: "Invalid email address." }),
@@ -97,7 +97,7 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
                   <div className="flex justify-between items-center">
                     <FormLabel>Password</FormLabel>
                     {mode === 'signin' && (
-                        <ForgotPasswordDialog role={role} />
+                        <OtpSignInDialog role={role} />
                     )}
                   </div>
                   <FormControl>

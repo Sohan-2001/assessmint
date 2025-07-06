@@ -3,8 +3,8 @@
 
 import { z } from 'zod';
 import { query } from '@/lib/db';
-import bcrypt from 'bcryptjs';
 import { Role } from '@/lib/types';
+import type { AuthResponse } from './auth.actions';
 
 // Helper to generate a 6-digit OTP
 const generateOtp = () => {
@@ -43,7 +43,7 @@ export async function sendOtpAction(email: string, role: Role): Promise<{ succes
       [otp, expiry, email]
     );
 
-    const message = `Your password reset OTP for AssessMint is: ${otp}. It will expire in 10 minutes.`;
+    const message = `Your sign-in OTP for AssessMint is: ${otp}. It will expire in 10 minutes.`;
     const emailApiUrl = `https://sarma.pythonanywhere.com/?email=${encodeURIComponent(email)}&message=${encodeURIComponent(message)}`;
     
     // Fire-and-forget call to the email API
@@ -59,58 +59,56 @@ export async function sendOtpAction(email: string, role: Role): Promise<{ succes
   }
 }
 
-const resetPasswordSchema = z
-  .object({
+const signInWithOtpSchema = z.object({
     email: z.string().email().trim().toLowerCase(),
     otp: z.string().length(6, 'OTP must be 6 digits.'),
-    password: z.string().min(8, 'Password must be at least 8 characters.'),
-    confirmPassword: z.string(),
     role: z.enum([Role.SETTER, Role.TAKER]),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match.",
-    path: ['confirmPassword'],
   });
-
-export async function resetPasswordAction(values: z.infer<typeof resetPasswordSchema>): Promise<{ success: boolean; message: string }> {
-  const validation = resetPasswordSchema.safeParse(values);
-  if (!validation.success) {
-    return { success: false, message: validation.error.flatten().fieldErrors.password?.[0] || validation.error.flatten().fieldErrors.confirmPassword?.[0] || 'Invalid data.' };
-  }
   
-  const { email, otp, password, role } = validation.data;
-
-  try {
-    const userResult = await query(
-      'SELECT "id", "role", "resetPasswordToken", "resetPasswordTokenExpiry" FROM "User" WHERE "email" = $1',
-      [email]
-    );
-
-    if (userResult.rows.length === 0) {
-      return { success: false, message: 'Invalid OTP or email.' };
-    }
-
-    const user = userResult.rows[0];
-    
-    if (user.role !== role) {
-      return { success: false, message: 'Invalid OTP or email for this role.' };
-    }
-
-    if (user.resetPasswordToken !== otp || !user.resetPasswordTokenExpiry || new Date() > new Date(user.resetPasswordTokenExpiry)) {
-      return { success: false, message: 'Invalid or expired OTP.' };
+export async function signInWithOtpAction(values: z.infer<typeof signInWithOtpSchema>): Promise<AuthResponse> {
+    const validation = signInWithOtpSchema.safeParse(values);
+    if (!validation.success) {
+        return { success: false, message: validation.error.flatten().fieldErrors.otp?.[0] || 'Invalid data.' };
     }
     
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const { email, otp, role } = validation.data;
 
-    await query(
-      'UPDATE "User" SET "password" = $1, "resetPasswordToken" = NULL, "resetPasswordTokenExpiry" = NULL, "updatedAt" = NOW() WHERE "id" = $2',
-      [hashedPassword, user.id]
-    );
-    
-    return { success: true, message: 'Password has been reset successfully. Please sign in.' };
+    try {
+        const userResult = await query(
+        'SELECT "id", "role", "resetPasswordToken", "resetPasswordTokenExpiry" FROM "User" WHERE "email" = $1',
+        [email]
+        );
 
-  } catch (error) {
-    console.error('Error in resetPasswordAction:', error);
-    return { success: false, message: 'An unexpected error occurred.' };
-  }
+        if (userResult.rows.length === 0) {
+        return { success: false, message: 'Invalid OTP or email.' };
+        }
+
+        const user = userResult.rows[0];
+        
+        if (user.role !== role) {
+        return { success: false, message: 'Invalid OTP or email for this role.' };
+        }
+
+        if (user.resetPasswordToken !== otp || !user.resetPasswordTokenExpiry || new Date() > new Date(user.resetPasswordTokenExpiry)) {
+        return { success: false, message: 'Invalid or expired OTP.' };
+        }
+        
+        // Clear the token after successful use
+        await query(
+        'UPDATE "User" SET "resetPasswordToken" = NULL, "resetPasswordTokenExpiry" = NULL, "updatedAt" = NOW() WHERE "id" = $1',
+        [user.id]
+        );
+        
+        // Return a successful sign-in response
+        return { 
+            success: true, 
+            message: 'Signed in successfully!',
+            role: user.role,
+            userId: user.id
+        };
+
+    } catch (error) {
+        console.error('Error in signInWithOtpAction:', error);
+        return { success: false, message: 'An unexpected error occurred.' };
+    }
 }

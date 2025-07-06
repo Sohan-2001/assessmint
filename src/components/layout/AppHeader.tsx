@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, SparklesIcon, Menu, Info } from 'lucide-react';
+import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, SparklesIcon, Menu, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -16,6 +16,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetClose,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -25,6 +26,8 @@ import { useRouter } from 'next/navigation';
 import { useAiPanel } from '@/contexts/AiPanelContext';
 import { useState } from 'react';
 import { Role } from '@/lib/types'; 
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
+
 
 export function AppHeader() {
   const { isAuthenticated, userRole, logout, isLoading } = useAuth();
@@ -92,6 +95,7 @@ export function AppHeader() {
                   </Button>
                 </>
               )}
+              <ThemeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -144,6 +148,7 @@ export function AppHeader() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <ThemeToggle />
             </>
           )}
         </nav>
@@ -221,21 +226,28 @@ export function AppHeader() {
                 )}
               </nav>
               
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <div className="mt-auto p-6 border-t">
-                   <div className="flex items-center mb-4">
-                      <Avatar className="h-10 w-10 mr-3">
-                        <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(userRole)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium leading-none">
-                          {userRole === Role.SETTER ? 'Exam Setter' : 'Exam Taker'}
-                        </p>
+                   <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center">
+                        <Avatar className="h-10 w-10 mr-3">
+                          <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(userRole)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium leading-none">
+                            {userRole === Role.SETTER ? 'Exam Setter' : 'Exam Taker'}
+                          </p>
+                        </div>
                       </div>
+                      <ThemeToggle />
                     </div>
                   <Button variant="ghost" className={commonMobileLinkStyles} onClick={handleLogout}>
                     <LogOut className={commonMobileIconStyles} />Log out
                   </Button>
+                </div>
+              ) : (
+                <div className="mt-auto p-6 border-t flex justify-end">
+                    <ThemeToggle />
                 </div>
               )}
             </SheetContent>

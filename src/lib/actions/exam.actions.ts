@@ -3,7 +3,7 @@
 
 import { z } from "zod";
 import { query, pool } from "@/lib/db"; // Use new db utility
-import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation, SubmissionInfo } from "@/lib/types";
+import type { Exam, Question, QuestionOption, QuestionType as AppQuestionType, SubmissionForEvaluation, SubmissionInfo, ExamHistoryInfo } from "@/lib/types";
 import { Role } from "@/lib/types"; 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -767,4 +767,50 @@ export async function getExamTakerEmailsAction(examId: string): Promise<{ succes
     return { success: false, message: `Failed to load attendees. ${errorMessage}` };
   }
 }
-    
+
+export async function getTakerExamHistoryAction(takerId: string): Promise<{ success: boolean; history?: ExamHistoryInfo[]; message?: string }> {
+  await new Promise(resolve => setTimeout(resolve, 500));
+  try {
+    const historyResult = await query(`
+      SELECT 
+        us."id" as "submissionId",
+        us."examId",
+        e."title" as "examTitle",
+        us."submittedAt",
+        us."isEvaluated",
+        us."evaluatedScore"
+      FROM "UserSubmission" us
+      JOIN "Exam" e ON us."examId" = e."id"
+      WHERE us."takerId" = $1
+      ORDER BY us."submittedAt" DESC;
+    `, [takerId]);
+
+    if (historyResult.rows.length === 0) {
+      return { success: true, history: [] };
+    }
+
+    const history: ExamHistoryInfo[] = [];
+    for (const row of historyResult.rows) {
+      const maxScoreResult = await query(
+        'SELECT SUM("points") as "maxScore" FROM "Question" WHERE "examId" = $1',
+        [row.examId]
+      );
+      const maxScore = parseInt(maxScoreResult.rows[0].maxScore, 10) || 0;
+
+      history.push({
+        submissionId: row.submissionId,
+        examId: row.examId,
+        examTitle: row.examTitle,
+        submittedAt: new Date(row.submittedAt),
+        isEvaluated: row.isEvaluated,
+        evaluatedScore: row.evaluatedScore,
+        maxScore: maxScore,
+      });
+    }
+
+    return { success: true, history };
+  } catch (error) {
+    console.error("Error fetching taker exam history (raw SQL):", error);
+    return { success: false, message: "Failed to load exam history." };
+  }
+}

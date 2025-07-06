@@ -1,6 +1,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { History, CheckSquare, BarChart3 } from "lucide-react"; // Or other relevant icons
+import { History, CheckSquare, BarChart3, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function TakerDashboardPage() {
   return (
@@ -10,45 +12,50 @@ export default function TakerDashboardPage() {
       </h1>
 
       <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="flex flex-col shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl md:text-2xl font-semibold font-headline">My Exam History</CardTitle>
             <History className="h-7 w-7 md:h-8 md:w-8 text-accent" />
           </CardHeader>
-          <CardContent>
-            <CardDescription className="text-sm md:text-base">
+          <CardContent className="flex flex-col flex-grow">
+            <CardDescription className="flex-grow mb-4 text-sm md:text-base">
               View details and scores of exams you've completed.
             </CardDescription>
-            {/* Placeholder: Add link/button to actual history page when implemented */}
-            <p className="mt-4 text-sm text-muted-foreground">Feature coming soon.</p>
+            <Button asChild className="w-full mt-auto bg-accent hover:bg-accent/90 text-accent-foreground text-sm md:text-base">
+                <Link href="/taker/history">
+                    View History <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+            </Button>
           </CardContent>
         </Card>
 
-        <Card className="shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="flex flex-col shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Upcoming Exams</CardTitle>
+            <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Available Exams</CardTitle>
             <CheckSquare className="h-7 w-7 md:h-8 md:w-8 text-primary" />
           </CardHeader>
-          <CardContent>
-            <CardDescription className="text-sm md:text-base">
-              Check exams you are scheduled to take.
+          <CardContent className="flex flex-col flex-grow">
+            <CardDescription className="flex-grow mb-4 text-sm md:text-base">
+              Check for new exams you are scheduled to take.
             </CardDescription>
-             {/* Placeholder: Add link/button or dynamic content */}
-            <p className="mt-4 text-sm text-muted-foreground">Feature coming soon.</p>
+            <Button asChild className="w-full mt-auto bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base">
+                <Link href="/taker/exams">
+                    Go to Exams <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+            </Button>
           </CardContent>
         </Card>
         
-        <Card className="shadow-lg hover:shadow-xl transition-shadow">
+        <Card className="flex flex-col shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Performance Stats</CardTitle>
             <BarChart3 className="h-7 w-7 md:h-8 md:w-8 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <CardDescription className="text-sm md:text-base">
+          <CardContent className="flex flex-col flex-grow">
+            <CardDescription className="flex-grow mb-4 text-sm md:text-base">
               Review your performance across different exams.
             </CardDescription>
-             {/* Placeholder: Add link/button or dynamic content */}
-            <p className="mt-4 text-sm text-muted-foreground">Feature coming soon.</p>
+             <p className="mt-auto text-sm text-muted-foreground">Feature coming soon.</p>
           </CardContent>
         </Card>
       </section>

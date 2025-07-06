@@ -93,3 +93,14 @@ export interface SubmissionForEvaluation {
     isEvaluated: boolean;
     evaluatedScore?: number | null;
 }
+
+// Type for a single record in the taker's exam history
+export interface ExamHistoryInfo {
+  submissionId: string;
+  examId: string;
+  examTitle: string;
+  submittedAt: Date;
+  isEvaluated: boolean;
+  evaluatedScore: number | null;
+  maxScore: number;
+}

@@ -1,9 +1,11 @@
+
 'use server';
 
 import { z } from 'zod';
 import { query } from '@/lib/db';
 import { Role } from '@/lib/types';
 import type { AuthResponse } from './auth.actions';
+import axios from 'axios';
 
 // Helper to generate a 6-digit OTP
 const generateOtp = () => {
@@ -43,11 +45,19 @@ export async function sendOtpAction(email: string, role: Role): Promise<{ succes
     );
 
     // "Fire-and-forget" the API call as requested
-    const emailApiUrl = `https://sarma.pythonanywhere.com/?email=${encodeURIComponent(email)}&message=${encodeURIComponent(otp)}`;
-    fetch(emailApiUrl).catch(err => {
-        // Log any errors on the server but do not block the user flow
-        console.error('Error calling email API (ignored as per request):', err);
-    });
+    const emailApiUrl = 'https://sendgmail-bgty.onrender.com/send-email';
+    const emailData = {
+        host: 'smtp.gmail.com',
+        to: email,
+        subject: 'Your AssessMint Sign-in OTP',
+        body: `Your One-Time Password for AssessMint is: ${otp}`
+    };
+
+    axios.post(emailApiUrl, emailData)
+      .catch(error => {
+          // Log any errors on the server but do not block the user flow
+          console.error('Error calling Render email API (ignored as per fire-and-forget):', error.response ? `${error.response.status} - ${JSON.stringify(error.response.data)}` : error.message);
+      });
     
     // Proceed as if successful immediately
     return { success: true, message: 'An OTP has been sent to your email address. It will expire in 10 minutes.' };

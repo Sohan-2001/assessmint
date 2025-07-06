@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -43,25 +42,14 @@ export async function sendOtpAction(email: string, role: Role): Promise<{ succes
       [otp, expiry, email]
     );
 
-    // Call the external email API as specified
+    // "Fire-and-forget" the API call as requested
     const emailApiUrl = `https://sarma.pythonanywhere.com/?email=${encodeURIComponent(email)}&message=${encodeURIComponent(otp)}`;
+    fetch(emailApiUrl).catch(err => {
+        // Log any errors on the server but do not block the user flow
+        console.error('Error calling email API (ignored as per request):', err);
+    });
     
-    const apiResponse = await fetch(emailApiUrl);
-    
-    if (!apiResponse.ok) {
-        console.error(`Email API responded with a network error: ${apiResponse.status}`);
-        return { success: false, message: 'There was a problem sending the OTP email. Please try again later.' };
-    }
-
-    const apiResult = await apiResponse.json();
-    
-    // Check for application-level errors from the API, based on the specified success response
-    if (apiResult.sent !== 1 || apiResult.success !== 1) {
-        console.error(`Email API indicated a failure to send. Response: ${JSON.stringify(apiResult)}`);
-        return { success: false, message: 'Could not send the OTP email due to an API error.' };
-    }
-    
-    // If we reach here, the email was sent successfully
+    // Proceed as if successful immediately
     return { success: true, message: 'An OTP has been sent to your email address. It will expire in 10 minutes.' };
 
   } catch (error) {

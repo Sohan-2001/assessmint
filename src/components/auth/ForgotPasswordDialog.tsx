@@ -49,10 +49,19 @@ export function OtpSignInDialog({ role }: OtpSignInDialogProps) {
   const handleSendOtp = async (values: z.infer<typeof emailSchema>) => {
     setIsLoading(true);
     const result = await sendOtpAction(values.email, role);
-    toast({ title: "OTP Request", description: result.message });
     if (result.success) {
+      toast({
+        title: "OTP Request Successful",
+        description: result.message,
+      });
       setUserEmail(values.email);
       setStep(2);
+    } else {
+      toast({
+        title: "OTP Request Failed",
+        description: result.message,
+        variant: "destructive",
+      });
     }
     setIsLoading(false);
   };

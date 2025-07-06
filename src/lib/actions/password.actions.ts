@@ -13,16 +13,17 @@ const generateOtp = () => {
 
 const sendOtpSchema = z.object({
   email: z.string().email('Invalid email address.').trim().toLowerCase(),
-  role: z.enum([Role.SETTER, Role.TAKER]),
 });
 
-export async function sendOtpAction(values: z.infer<typeof sendOtpSchema>): Promise<{ success: boolean; message: string }> {
-  const validation = sendOtpSchema.safeParse(values);
+export async function sendOtpAction(email: string, role: Role): Promise<{ success: boolean; message: string }> {
+  const validation = sendOtpSchema.safeParse({ email });
   if (!validation.success) {
-    return { success: false, message: 'Invalid data provided. Please check the form and try again.' };
+    return { success: false, message: 'Invalid email address provided.' };
   }
 
-  const { email, role } = validation.data;
+  if (!role || (role !== Role.SETTER && role !== Role.TAKER)) {
+      return { success: false, message: 'A valid user role must be specified.' };
+  }
 
   try {
     const userResult = await query('SELECT "id", "role" FROM "User" WHERE "email" = $1', [email]);

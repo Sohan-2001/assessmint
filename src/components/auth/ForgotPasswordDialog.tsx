@@ -51,7 +51,7 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
 
   const handleSendOtp = async (values: z.infer<typeof emailSchema>) => {
     setIsLoading(true);
-    const result = await sendOtpAction({ email: values.email, role });
+    const result = await sendOtpAction(values.email, role);
     toast({ title: "OTP Request", description: result.message });
     if (result.success) {
       setUserEmail(values.email);

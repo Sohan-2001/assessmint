@@ -15,9 +15,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
-import type { UserRole } from "@/contexts/AuthContext";
+import { Role } from "@/lib/types";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
 
 const formSchemaBase = {
   email: z.string().email({ message: "Invalid email address." }),
@@ -36,7 +37,7 @@ const signInSchema = z.object(formSchemaBase);
 
 type AuthFormProps = {
   mode: "signin" | "signup";
-  role: UserRole;
+  role: Role;
   onSubmit: (values: z.infer<typeof signInSchema> | z.infer<typeof signUpSchema>) => Promise<void>;
   isLoading: boolean;
 };
@@ -59,8 +60,8 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
   const submitButtonText = mode === "signin" ? "Sign In" : "Sign Up";
   const alternativeActionText = mode === "signin" ? "Don't have an account?" : "Already have an account?";
   const alternativeActionLink = mode === "signin" 
-    ? (role === "setter" ? "/setter-sign-up" : "/taker-sign-up")
-    : (role === "setter" ? "/setter-sign-in" : "/taker-sign-in");
+    ? (role === Role.SETTER ? "/setter-sign-up" : "/taker-sign-up")
+    : (role === Role.SETTER ? "/setter-sign-in" : "/taker-sign-in");
   const alternativeActionLinkText = mode === "signin" ? "Sign Up" : "Sign In";
 
   return (
@@ -92,7 +93,12 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Password</FormLabel>
+                    {mode === 'signin' && (
+                        <ForgotPasswordDialog role={role} />
+                    )}
+                  </div>
                   <FormControl>
                     <div className="relative">
                       <Input type={showPassword ? "text" : "password"} placeholder="••••••••" {...field} />
@@ -121,7 +127,7 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" {...field} />
+                        <Input type="password" placeholder="••••••••" {...field} />
                         <Button
                           type="button"
                           variant="ghost"

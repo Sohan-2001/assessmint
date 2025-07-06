@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { query } from '@/lib/db';
 import { Role } from '@/lib/types';
 import type { AuthResponse } from './auth.actions';
-import axios from 'axios';
 
 // Helper to generate a 6-digit OTP
 const generateOtp = () => {
@@ -45,20 +44,25 @@ export async function sendOtpAction(email: string, role: Role): Promise<{ succes
     );
 
     // "Fire-and-forget" the API call as requested
-    const emailApiUrl = 'https://sendgmail-bgty.onrender.com/send-email';
-    const emailData = {
+    const url = 'https://sendgmail-bgty.onrender.com/send-email';
+    
+    // Fire-and-forget the request. We don't await the result.
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         host: 'smtp.gmail.com',
         to: email,
         subject: 'Your AssessMint Sign-in OTP',
-        body: `Your One-Time Password for AssessMint is: ${otp}`
-    };
+        body: `Your one-time password is: ${otp}\n\nThis code will expire in 10 minutes.`,
+      }),
+    }).catch(error => {
+      // We catch potential errors from the fetch call itself, but we don't let it affect the user flow.
+      console.error("Failed to send verification email (fire-and-forget):", error);
+    });
 
-    axios.post(emailApiUrl, emailData)
-      .catch(error => {
-          // Log any errors on the server but do not block the user flow
-          console.error('Error calling Render email API (ignored as per fire-and-forget):', error.response ? `${error.response.status} - ${JSON.stringify(error.response.data)}` : error.message);
-      });
-    
     // Proceed as if successful immediately
     return { success: true, message: 'An OTP has been sent to your email address. It will expire in 10 minutes.' };
 

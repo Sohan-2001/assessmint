@@ -48,7 +48,7 @@ export default function SetterSignUpPage() {
 
   return (
     <AuthPageLayout title="Setter Sign Up">
-      <AuthForm mode="signup" role="setter" onSubmit={handleSignUp} isLoading={isLoading} />
+      <AuthForm mode="signup" role={Role.SETTER} onSubmit={handleSignUp} isLoading={isLoading} />
     </AuthPageLayout>
   );
 }

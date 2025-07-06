@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,9 +68,9 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline text-center text-primary">{`${role === 'setter' ? 'Setter' : 'Taker'} ${pageTitle}`}</CardTitle>
+        <CardTitle className="text-3xl font-headline text-center text-primary">{`${role === Role.SETTER ? 'Setter' : 'Taker'} ${pageTitle}`}</CardTitle>
         <CardDescription className="text-center">
-          {mode === 'signin' ? `Access your ${role} dashboard.` : `Create your ${role} account.`}
+          {mode === 'signin' ? `Access your ${role.toLowerCase()} dashboard.` : `Create your ${role.toLowerCase()} account.`}
         </CardDescription>
       </CardHeader>
       <CardContent>

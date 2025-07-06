@@ -34,7 +34,7 @@ export default function SetterSignInPage() {
 
   return (
     <AuthPageLayout title="Setter Sign In">
-      <AuthForm mode="signin" role="setter" onSubmit={handleSignIn} isLoading={isLoading} />
+      <AuthForm mode="signin" role={Role.SETTER} onSubmit={handleSignIn} isLoading={isLoading} />
     </AuthPageLayout>
   );
 }

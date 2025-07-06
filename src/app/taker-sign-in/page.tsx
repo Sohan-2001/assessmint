@@ -34,7 +34,7 @@ export default function TakerSignInPage() {
 
   return (
     <AuthPageLayout title="Taker Sign In">
-      <AuthForm mode="signin" role="taker" onSubmit={handleSignIn} isLoading={isLoading} />
+      <AuthForm mode="signin" role={Role.TAKER} onSubmit={handleSignIn} isLoading={isLoading} />
     </AuthPageLayout>
   );
 }

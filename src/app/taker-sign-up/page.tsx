@@ -48,7 +48,7 @@ export default function TakerSignUpPage() {
 
   return (
     <AuthPageLayout title="Taker Sign Up">
-      <AuthForm mode="signup" role="taker" onSubmit={handleSignUp} isLoading={isLoading} />
+      <AuthForm mode="signup" role={Role.TAKER} onSubmit={handleSignUp} isLoading={isLoading} />
     </AuthPageLayout>
   );
 }

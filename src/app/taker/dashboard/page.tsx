@@ -55,7 +55,11 @@ export default function TakerDashboardPage() {
             <CardDescription className="flex-grow mb-4 text-sm md:text-base">
               Review your performance across different exams.
             </CardDescription>
-             <p className="mt-auto text-sm text-muted-foreground">Feature coming soon.</p>
+             <Button asChild className="w-full mt-auto bg-green-600 hover:bg-green-700 text-white text-sm md:text-base">
+              <Link href="/taker/performance">
+                View Stats <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </section>

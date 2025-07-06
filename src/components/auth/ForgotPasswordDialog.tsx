@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -61,7 +62,7 @@ export function ForgotPasswordDialog({ role }: ForgotPasswordDialogProps) {
 
   const handleResetPassword = async (values: z.infer<typeof resetSchema>) => {
     setIsLoading(true);
-    const result = await resetPasswordAction({ email: userEmail, ...values });
+    const result = await resetPasswordAction({ email: userEmail, role, ...values });
     toast({
       title: "Password Reset",
       description: result.message,

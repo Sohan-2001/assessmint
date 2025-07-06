@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -18,7 +19,7 @@ const sendOtpSchema = z.object({
 export async function sendOtpAction(values: z.infer<typeof sendOtpSchema>): Promise<{ success: boolean; message: string }> {
   const validation = sendOtpSchema.safeParse(values);
   if (!validation.success) {
-    return { success: false, message: 'Invalid email.' };
+    return { success: false, message: 'Invalid data provided. Please check the form and try again.' };
   }
 
   const { email, role } = validation.data;
@@ -27,8 +28,9 @@ export async function sendOtpAction(values: z.infer<typeof sendOtpSchema>): Prom
     const userResult = await query('SELECT "id", "role" FROM "User" WHERE "email" = $1', [email]);
 
     if (userResult.rows.length === 0 || userResult.rows[0].role !== role) {
-      // Don't reveal if the user exists.
-      return { success: true, message: 'If an account with this email exists, an OTP has been sent.' };
+      // Don't reveal if the user exists for security reasons (user enumeration).
+      // Always return a positive-sounding message. The email will only be sent if they exist.
+      return { success: true, message: 'If an account with this email and role exists, an OTP has been sent.' };
     }
 
     const otp = generateOtp();
@@ -49,7 +51,7 @@ export async function sendOtpAction(values: z.infer<typeof sendOtpSchema>): Prom
         console.error("Failed to send OTP email:", err);
     });
 
-    return { success: true, message: 'If an account with this email exists, an OTP has been sent.' };
+    return { success: true, message: 'If an account with this email and role exists, an OTP has been sent.' };
   } catch (error) {
     console.error('Error in sendOtpAction:', error);
     return { success: false, message: 'An unexpected error occurred. Please try again.' };
@@ -62,6 +64,7 @@ const resetPasswordSchema = z
     otp: z.string().length(6, 'OTP must be 6 digits.'),
     password: z.string().min(8, 'Password must be at least 8 characters.'),
     confirmPassword: z.string(),
+    role: z.enum([Role.SETTER, Role.TAKER]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match.",
@@ -74,11 +77,11 @@ export async function resetPasswordAction(values: z.infer<typeof resetPasswordSc
     return { success: false, message: validation.error.flatten().fieldErrors.password?.[0] || validation.error.flatten().fieldErrors.confirmPassword?.[0] || 'Invalid data.' };
   }
   
-  const { email, otp, password } = validation.data;
+  const { email, otp, password, role } = validation.data;
 
   try {
     const userResult = await query(
-      'SELECT "id", "resetPasswordToken", "resetPasswordTokenExpiry" FROM "User" WHERE "email" = $1',
+      'SELECT "id", "role", "resetPasswordToken", "resetPasswordTokenExpiry" FROM "User" WHERE "email" = $1',
       [email]
     );
 
@@ -87,6 +90,10 @@ export async function resetPasswordAction(values: z.infer<typeof resetPasswordSc
     }
 
     const user = userResult.rows[0];
+    
+    if (user.role !== role) {
+      return { success: false, message: 'Invalid OTP or email for this role.' };
+    }
 
     if (user.resetPasswordToken !== otp || !user.resetPasswordTokenExpiry || new Date() > new Date(user.resetPasswordTokenExpiry)) {
       return { success: false, message: 'Invalid or expired OTP.' };

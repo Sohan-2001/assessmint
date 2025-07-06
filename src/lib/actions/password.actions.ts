@@ -28,34 +28,45 @@ export async function sendOtpAction(email: string, role: Role): Promise<{ succes
   try {
     const userResult = await query('SELECT "id", "role" FROM "User" WHERE "email" = $1', [email]);
 
+    // For security, don't reveal if the user exists. Always return a positive-sounding message.
+    // The email will only be sent if they exist with the correct role.
     if (userResult.rows.length === 0 || userResult.rows[0].role !== role) {
-      // Don't reveal if the user exists for security reasons (user enumeration).
-      // Always return a positive-sounding message. The email will only be sent if they exist.
-      return { success: true, message: 'If an account with this email and role exists, an OTP has been sent.' };
+      return { success: true, message: 'If an account with this email and role exists, an OTP will be sent.' };
     }
 
     const otp = generateOtp();
     const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
-    // NOTE: This assumes `resetPasswordToken` and `resetPasswordTokenExpiry` columns exist on the "User" table.
+    // Store OTP and expiry in the database
     await query(
       'UPDATE "User" SET "resetPasswordToken" = $1, "resetPasswordTokenExpiry" = $2 WHERE "email" = $3',
       [otp, expiry, email]
     );
 
-    const message = `Your sign-in OTP for AssessMint is: ${otp}. It will expire in 10 minutes.`;
-    const emailApiUrl = `https://sarma.pythonanywhere.com/?email=${encodeURIComponent(email)}&message=${encodeURIComponent(message)}`;
+    // Call the external email API as specified
+    const emailApiUrl = `https://sarma.pythonanywhere.com/?email=${encodeURIComponent(email)}&message=${encodeURIComponent(otp)}`;
     
-    // Fire-and-forget call to the email API
-    fetch(emailApiUrl).catch(err => {
-        // Log error but don't fail the user-facing action because of it
-        console.error("Failed to send OTP email:", err);
-    });
+    const apiResponse = await fetch(emailApiUrl);
+    
+    if (!apiResponse.ok) {
+        console.error(`Email API responded with a network error: ${apiResponse.status}`);
+        return { success: false, message: 'There was a problem sending the OTP email. Please try again later.' };
+    }
 
-    return { success: true, message: 'If an account with this email and role exists, an OTP has been sent.' };
+    const apiResult = await apiResponse.json();
+    
+    // Check for application-level errors from the API, based on the specified success response
+    if (apiResult.sent !== 1 || apiResult.success !== 1) {
+        console.error(`Email API indicated a failure to send. Response: ${JSON.stringify(apiResult)}`);
+        return { success: false, message: 'Could not send the OTP email due to an API error.' };
+    }
+    
+    // If we reach here, the email was sent successfully
+    return { success: true, message: 'An OTP has been sent to your email address. It will expire in 10 minutes.' };
+
   } catch (error) {
     console.error('Error in sendOtpAction:', error);
-    return { success: false, message: 'An unexpected error occurred. Please try again.' };
+    return { success: false, message: 'An unexpected server error occurred. Please try again.' };
   }
 }
 

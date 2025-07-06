@@ -8,12 +8,13 @@ import { Clock, HelpCircle, ListChecks, CheckSquare, Users } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { memo } from "react";
 
 type EvaluateExamCardProps = {
   exam: Exam;
 };
 
-export function EvaluateExamCard({ exam }: EvaluateExamCardProps) {
+const EvaluateExamCardComponent = ({ exam }: EvaluateExamCardProps) => {
   const router = useRouter();
 
   const handleEvaluateSubmissions = () => {
@@ -62,3 +63,6 @@ export function EvaluateExamCard({ exam }: EvaluateExamCardProps) {
     </Card>
   );
 }
+
+export const EvaluateExamCard = memo(EvaluateExamCardComponent);
+EvaluateExamCard.displayName = "EvaluateExamCard";

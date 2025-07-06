@@ -6,13 +6,18 @@ import { useRouter } from "next/navigation";
 import { listExamsAction, verifyPasscodeAction } from "@/lib/actions/exam.actions";
 import type { Exam } from "@/lib/types";
 import { ExamCard } from "@/components/taker/ExamCard";
-import { PasscodeDialog } from "@/components/taker/PasscodeDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, Search, ListChecks } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import dynamic from 'next/dynamic';
+
+const PasscodeDialog = dynamic(() => import('@/components/taker/PasscodeDialog').then(mod => mod.PasscodeDialog), {
+  ssr: false,
+});
+
 
 export default function AvailableExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -166,4 +171,3 @@ export default function AvailableExamsPage() {
     </div>
   );
 }
-

@@ -5,11 +5,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { Loader2, Sparkles, X } from "lucide-react"; 
-import { SyllabusToQuestionsForm } from "@/components/setter/SyllabusToQuestionsForm";
 import { useAiPanel } from "@/contexts/AiPanelContext";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Role } from "@/lib/types"; 
+import dynamic from 'next/dynamic';
+
+const SyllabusToQuestionsForm = dynamic(
+  () => import('@/components/setter/SyllabusToQuestionsForm').then(mod => mod.SyllabusToQuestionsForm),
+  {
+    loading: () => <div className="flex justify-center p-4"><Loader2 className="h-6 w-6 animate-spin text-primary"/></div>,
+    ssr: false,
+  }
+);
+
 
 // PanelBodyContent remains a shared component for the form area
 const PanelBodyContent = () => (

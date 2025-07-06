@@ -4,13 +4,19 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getExamByIdAction, updateExamAction } from "@/lib/actions/exam.actions";
-import type { Exam, Question as AppQuestion, QuestionOption as AppQuestionOption } from "@/lib/types"; 
-import { ExamCreationForm, type examFormSchema } from "@/components/setter/ExamCreationForm"; 
+import type { Exam } from "@/lib/types"; 
+import type { examFormSchema } from "@/components/setter/ExamCreationForm"; 
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import type { z } from "zod";
 import { format } from "date-fns";
+import dynamic from 'next/dynamic';
+
+const ExamCreationForm = dynamic(() => import('@/components/setter/ExamCreationForm').then(mod => mod.ExamCreationForm), {
+  ssr: false,
+  loading: () => <div className="flex justify-center p-8"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
+});
 
 type ExamFormValues = z.infer<typeof examFormSchema>;
 

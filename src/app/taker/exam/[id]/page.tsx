@@ -1,13 +1,25 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getExamByIdAction } from "@/lib/actions/exam.actions";
 import type { Exam } from "@/lib/types";
-import { ExamTakingInterface } from "@/components/taker/ExamTakingInterface";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import dynamic from 'next/dynamic';
+
+const ExamTakingInterface = dynamic(() => import('@/components/taker/ExamTakingInterface').then(mod => mod.ExamTakingInterface), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-var(--header-height,8rem))]">
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <p className="mt-4 text-muted-foreground">Loading Exam Interface...</p>
+    </div>
+  ),
+});
+
 
 export default function TakeExamPage() {
   const params = useParams();

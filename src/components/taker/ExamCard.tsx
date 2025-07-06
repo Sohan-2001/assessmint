@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Clock, HelpCircle, ListChecks, AlertCircle } from "lucide-react"; // Added AlertCircle
 import { format, formatDistanceToNow, isFuture } from 'date-fns';
+import { memo } from 'react';
 
 type ExamCardProps = {
   exam: Exam;
   onAccessExam: (examId: string) => void;
 };
 
-export function ExamCard({ exam, onAccessExam }: ExamCardProps) {
+const ExamCardComponent = ({ exam, onAccessExam }: ExamCardProps) => {
   const isScheduled = exam.openAt && isFuture(new Date(exam.openAt));
   const examNotYetOpen = isScheduled && new Date() < new Date(exam.openAt as Date);
 
@@ -71,3 +72,6 @@ export function ExamCard({ exam, onAccessExam }: ExamCardProps) {
     </Card>
   );
 }
+
+export const ExamCard = memo(ExamCardComponent);
+ExamCard.displayName = "ExamCard";

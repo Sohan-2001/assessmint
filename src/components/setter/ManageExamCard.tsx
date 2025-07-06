@@ -17,19 +17,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useRouter } from "next/navigation";
-import { getExamTakerEmailsAction } from "@/lib/actions/exam.actions"; // Renamed from getExamAttendeesAction
-import type { SubmissionInfo } from "@/lib/actions/exam.actions"; // Using a more generic name might be good if it evolves
-import { ExamAttendeesDialog } from "./ExamAttendeesDialog"; 
+import { getExamTakerEmailsAction } from "@/lib/actions/exam.actions";
 import { useToast } from "@/hooks/use-toast";
+import dynamic from "next/dynamic";
+
+const ExamAttendeesDialog = dynamic(() => import("./ExamAttendeesDialog").then(mod => mod.ExamAttendeesDialog), {
+    ssr: false,
+    loading: () => <div className="p-4 text-center">Loading...</div>,
+});
+
 
 type ManageExamCardProps = {
   exam: Exam;
   onDelete: (examId: string) => Promise<boolean>;
 };
 
-export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
+const ManageExamCardComponent = ({ exam, onDelete }: ManageExamCardProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFetchingAttendees, setIsFetchingAttendees] = useState(false);
   const [attendees, setAttendees] = useState<Array<{email: string, submittedAt: Date}> | undefined>(undefined);
@@ -51,7 +56,7 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
     setIsFetchingAttendees(true);
     setAttendees(undefined); 
     setIsAttendeesDialogOpen(true); 
-    const result = await getExamTakerEmailsAction(exam.id); // Use renamed action
+    const result = await getExamTakerEmailsAction(exam.id);
     if (result.success && result.attendees) {
       setAttendees(result.attendees);
     } else {
@@ -140,7 +145,7 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
         <ExamAttendeesDialog
           isOpen={isAttendeesDialogOpen}
           onOpenChange={setIsAttendeesDialogOpen}
-          attendees={attendees} /* This needs to match the type expected by ExamAttendeesDialog */
+          attendees={attendees}
           examTitle={exam.title}
           isLoading={isFetchingAttendees}
         />
@@ -148,3 +153,6 @@ export function ManageExamCard({ exam, onDelete }: ManageExamCardProps) {
     </Card>
   );
 }
+
+export const ManageExamCard = memo(ManageExamCardComponent);
+ManageExamCard.displayName = "ManageExamCard";

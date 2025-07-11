@@ -63,7 +63,7 @@ export default function TakerDashboardPage() {
           </CardContent>
         </Card>
         
-        <Card className="flex flex-col shadow-lg hover:shadow-xl transition-shadow md:col-span-2 lg:col-span-1">
+        <Card className="flex flex-col shadow-lg hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xl md:text-2xl font-semibold font-headline">Performance Stats</CardTitle>
             <BarChart3 className="h-7 w-7 md:h-8 md:w-8 text-green-600" />

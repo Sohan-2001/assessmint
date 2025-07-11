@@ -14,7 +14,7 @@ const inter = Inter({
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-poppins',
   display: 'swap',
 });
@@ -31,16 +31,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${poppins.variable}`}>
-      <head>
-        {/* Font <link> tags are now handled by next/font and can be removed */}
-      </head>
+      <head />
       <body className="font-body antialiased">
         <Providers>
-          <AiPanelProvider> {/* Provider wraps content that might use/trigger the panel */}
+          <AiPanelProvider>
             <div className="flex min-h-screen flex-col">
               <AppHeader />
               <main className="flex-grow">{children}</main>
-              {/* Optional Footer can be added here */}
             </div>
           </AiPanelProvider>
         </Providers>

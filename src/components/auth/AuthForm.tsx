@@ -66,10 +66,10 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
   const alternativeActionLinkText = mode === "signin" ? "Sign Up" : "Sign In";
 
   return (
-    <Card className="w-full max-w-md shadow-xl">
+    <Card className="w-full max-w-md shadow-2xl border">
       <CardHeader>
         <CardTitle className="text-3xl font-headline text-center text-primary">{`${role === Role.SETTER ? 'Setter' : 'Taker'} ${pageTitle}`}</CardTitle>
-        <CardDescription className="text-center">
+        <CardDescription className="text-center !mt-2">
           {mode === 'signin' ? `Access your ${role.toLowerCase()} dashboard.` : `Create your ${role.toLowerCase()} account.`}
         </CardDescription>
       </CardHeader>
@@ -107,7 +107,7 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
                         onClick={() => setShowPassword(!showPassword)}
                         aria-label={showPassword ? "Hide password" : "Show password"}
                       >
@@ -128,12 +128,12 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" {...field} />
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                         >
@@ -146,7 +146,7 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
                 )}
               />
             )}
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {submitButtonText}
             </Button>
@@ -154,7 +154,7 @@ export function AuthForm({ mode, role, onSubmit, isLoading }: AuthFormProps) {
         </Form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           {alternativeActionText}{" "}
-          <Link href={alternativeActionLink} className="font-medium text-accent hover:underline">
+          <Link href={alternativeActionLink} className="font-medium text-primary hover:underline">
             {alternativeActionLinkText}
           </Link>
         </p>

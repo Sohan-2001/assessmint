@@ -59,7 +59,7 @@ export function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2" aria-label="AssessMint Home">
           <BookOpenCheck className="h-8 w-8 text-primary" />
@@ -69,7 +69,7 @@ export function AppHeader() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-x-1 lg:gap-x-2">
           <Button variant="ghost" asChild>
-            <Link href="/about"><Info className="mr-2 h-5 w-5" />About</Link>
+            <Link href="/about">About</Link>
           </Button>
           {isLoading ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
@@ -78,20 +78,20 @@ export function AppHeader() {
               {userRole === Role.SETTER && (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link href="/setter/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
+                    <Link href="/setter/dashboard">Dashboard</Link>
                   </Button>
                   <Button variant="ghost" onClick={() => setIsAiPanelOpen(true)}>
-                    <SparklesIcon className="mr-2 h-5 w-5" />AI Questions
+                    <SparklesIcon className="mr-2 h-4 w-4" />AI Generator
                   </Button>
                 </>
               )}
               {userRole === Role.TAKER && (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link href="/taker/dashboard"><LayoutDashboard className="mr-2 h-5 w-5" />Dashboard</Link>
+                    <Link href="/taker/dashboard">Dashboard</Link>
                   </Button>
                   <Button variant="ghost" asChild>
-                    <Link href="/taker/exams"><ListChecks className="mr-2 h-5 w-5" />Available Exams</Link>
+                    <Link href="/taker/exams">Available Exams</Link>
                   </Button>
                 </>
               )}
@@ -99,8 +99,8 @@ export function AppHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(userRole)}</AvatarFallback>
+                    <Avatar className="h-9 w-9 border-2 border-primary/50">
+                      <AvatarFallback className="bg-primary text-primary-foreground font-semibold">{getInitials(userRole)}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -137,7 +137,7 @@ export function AppHeader() {
               </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">Exam Taker</Button>
+                   <Button variant="secondary">Exam Taker</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => router.push('/taker-sign-in')}>

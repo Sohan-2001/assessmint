@@ -2,11 +2,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Edit3, UserCheck } from 'lucide-react';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center bg-background">
-      <header className="mb-12">
+      <header className="mb-8">
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-headline font-bold text-primary mb-4">
           Welcome to AssessMint
         </h1>
@@ -15,7 +16,18 @@ export default function HomePage() {
         </p>
       </header>
 
-      <section className="grid md:grid-cols-2 gap-8 max-w-4xl w-full mb-12 mt-8">
+      <div className="mb-12 rounded-lg overflow-hidden shadow-2xl">
+        <Image
+          src="https://sw0u7owaczjz29lf.public.blob.vercel-storage.com/Gemini_Generated_Image_k1wslck1wslck1ws.png"
+          alt="AI-powered exam platform hero image"
+          width={800}
+          height={450}
+          className="object-cover"
+          priority
+        />
+      </div>
+
+      <section className="grid md:grid-cols-2 gap-8 max-w-4xl w-full mb-12">
         <div className="bg-card p-6 md:p-8 rounded-lg shadow-lg flex flex-col items-center">
           <Edit3 className="w-12 h-12 md:w-16 md:h-16 text-primary mb-4" />
           <h2 className="text-2xl md:text-3xl font-headline font-semibold text-primary mb-3">For Exam Setters</h2>

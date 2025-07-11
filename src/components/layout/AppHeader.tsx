@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, SparklesIcon, Menu, Info, X } from 'lucide-react';
+import { BookOpenCheck, LogIn, LogOut, UserPlus, LayoutDashboard, ListChecks, SparklesIcon, Menu, Info, X, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -27,6 +27,7 @@ import { useAiPanel } from '@/contexts/AiPanelContext';
 import { useState } from 'react';
 import { Role } from '@/lib/types'; 
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { UnlockSecurityDialog } from './UnlockSecurityDialog';
 
 
 export function AppHeader() {
@@ -71,6 +72,7 @@ export function AppHeader() {
           <Button variant="ghost" asChild>
             <Link href="/about">About</Link>
           </Button>
+          <UnlockSecurityDialog />
           {isLoading ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
           ) : isAuthenticated ? (
@@ -176,6 +178,11 @@ export function AppHeader() {
                 <Button variant="ghost" className={commonMobileLinkStyles} onClick={() => navigateAndCloseMobileMenu('/about')}>
                   <Info className={commonMobileIconStyles} />About AssessMint
                 </Button>
+                 <SheetClose asChild>
+                  <div className="-ml-2">
+                    <UnlockSecurityDialog />
+                  </div>
+                 </SheetClose>
                 <DropdownMenuSeparator className="my-3"/>
                 {isLoading ? (
                   <div className="space-y-3">

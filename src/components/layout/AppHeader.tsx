@@ -124,7 +124,7 @@ export function AppHeader() {
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="bg-amber-500 hover:bg-amber-600 text-white">Exam Setter</Button>
+                  <Button>Exam Setter</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => router.push('/setter-sign-in')}>
@@ -137,7 +137,7 @@ export function AppHeader() {
               </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="bg-sky-500 hover:bg-sky-600 text-white">Exam Taker</Button>
+                  <Button variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">Exam Taker</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => router.push('/taker-sign-in')}>

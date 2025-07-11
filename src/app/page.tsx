@@ -1,7 +1,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Edit3, UserCheck } from 'lucide-react';
+import { ArrowRight, Edit3, UserCheck, Bot, ShieldCheck, FileText, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 
 export default function HomePage() {
@@ -55,21 +55,26 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="max-w-3xl w-full text-left">
+      <section className="max-w-4xl w-full">
         <h3 className="text-2xl md:text-3xl font-headline font-semibold text-primary mb-6 text-center">Key Features</h3>
-        <ul className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-6 text-left">
           {[
-            { title: "AI Question Generation", description: "Paste your syllabus and let our AI suggest relevant exam questions." },
-            { title: "Secure Exam Creation", description: "Set passcodes and manage exam access with robust security features." },
-            { title: "Intuitive Exam Interface", description: "A clean, focused environment for exam takers to perform their best." },
-            { title: "Flexible Question Types", description: "Support for multiple choice, short answer, and essay questions." }
+            { icon: <Bot className="h-8 w-8 text-primary" />, title: "AI Question Generation", description: "Paste your syllabus and let our AI suggest relevant exam questions." },
+            { icon: <ShieldCheck className="h-8 w-8 text-primary" />, title: "Secure Exam Creation", description: "Set passcodes and manage exam access with robust security features." },
+            { icon: <FileText className="h-8 w-8 text-primary" />, title: "Intuitive Exam Interface", description: "A clean, focused environment for exam takers to perform their best." },
+            { icon: <CheckCircle className="h-8 w-8 text-primary" />, title: "Flexible Question Types", description: "Support for multiple choice, short answer, and essay questions." }
           ].map((feature, index) => (
-            <li key={index} className="bg-card p-4 md:p-6 rounded-md shadow-md">
-              <h4 className="text-lg md:text-xl font-headline font-medium text-primary mb-1">{feature.title}</h4>
-              <p className="text-sm md:text-base text-muted-foreground">{feature.description}</p>
-            </li>
+            <div key={index} className="bg-card p-6 rounded-lg shadow-md flex items-start gap-4">
+              <div className="shrink-0">
+                {feature.icon}
+              </div>
+              <div>
+                <h4 className="text-lg font-headline font-medium text-primary mb-1">{feature.title}</h4>
+                <p className="text-sm text-muted-foreground">{feature.description}</p>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
     </div>
   );
